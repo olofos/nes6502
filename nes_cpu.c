@@ -1056,6 +1056,123 @@ int cpu_step(void)
         PRINT_OP("BRK");
         return -2;
 
+// Undocumented instructions
+
+    case 0x1A: // *NOP impl
+    case 0x3A:
+    case 0x5A:
+    case 0x7A:
+    case 0xDA:
+    case 0xFA:
+        GET_ADDR_IMPL();
+        goto undocumented_NOP;
+
+    case 0x04: // *NOP zero
+    case 0x44:
+    case 0x64:
+        GET_ADDR_ZERO();
+        goto undocumented_NOP;
+
+    case 0x14: // *NOP zero,X
+    case 0x34:
+    case 0x54:
+    case 0x74:
+    case 0xD4:
+    case 0xF4:
+        GET_ADDR_ZEROX();
+        goto undocumented_NOP;
+
+    case 0x80: // *NOP imm
+    case 0x82:
+    case 0x89:
+    case 0xC2:
+    case 0xE2:
+        GET_ADDR_IMM();
+        goto undocumented_NOP;
+
+    case 0x0C: // *NOP abs
+        GET_ADDR_ABS();
+        goto undocumented_NOP;
+
+    case 0x1C: // *NOP abs, X
+    case 0x3C:
+    case 0x5C:
+    case 0x7C:
+    case 0xDC:
+    case 0xFC:
+        GET_ADDR_ABSX();
+        goto undocumented_NOP;
+
+    undocumented_NOP:
+        NO_FLAGS();
+        PRINT_UNDOCUMENTED_OP("*NOP");
+        break;
+
+
+    case 0xA7: // *LAX
+        GET_ADDR_ZERO();
+        goto undocumented_LAX;
+
+    case 0xB7: // *LAX
+        GET_ADDR_ZEROY();
+        goto undocumented_LAX;
+
+    case 0xAF: // *LAX
+        GET_ADDR_ABS();
+        goto undocumented_LAX;
+
+    case 0xBF: // *LAX
+        GET_ADDR_ABSY();
+        goto undocumented_LAX;
+
+    case 0xA3: // *LAX
+        GET_ADDR_INDX();
+        goto undocumented_LAX;
+
+    case 0xB3: // *LAX
+        GET_ADDR_INDY();
+        goto undocumented_LAX;
+
+    undocumented_LAX:
+        {
+            const uint8_t val = read_mem(addr);
+            cpu.x = cpu.a = val;
+            AFFECTED_FLAGS(FLAG_ZERO | FLAG_NEGATIVE);
+            CHECK_ZERO(val);
+            CHECK_NEG(val);
+            PRINT_UNDOCUMENTED_OP("*LAX");
+        }
+        break;
+
+
+
+    case 0x87: // *SAX
+        GET_ADDR_ZERO();
+        goto undocumented_SAX;
+
+    case 0x97: // *SAX
+        GET_ADDR_ZEROY();
+        goto undocumented_SAX;
+
+    case 0x83: // *SAX
+        GET_ADDR_INDX();
+        goto undocumented_SAX;
+
+    case 0x8F: // *SAX
+        GET_ADDR_ABS();
+        goto undocumented_SAX;
+
+    undocumented_SAX:
+        {
+            uint8_t val = cpu.a & cpu.x;
+            write_mem(addr, val);
+            AFFECTED_FLAGS(FLAG_ZERO | FLAG_NEGATIVE);
+            CHECK_ZERO(val);
+            CHECK_NEG(val);
+            PRINT_UNDOCUMENTED_OP("*SAX");
+        }
+        break;
+
     default:
         PRINT_OP("Unkown opcode");
         return -1;
