@@ -1135,11 +1135,11 @@ int cpu_step(void)
 
     undocumented_LAX:
         {
-            const uint8_t val = read_mem(addr);
-            cpu.x = cpu.a = val;
+            const uint8_t result = read_mem(addr);
+            cpu.x = cpu.a = result;
             AFFECTED_FLAGS(FLAG_ZERO | FLAG_NEGATIVE);
-            CHECK_ZERO(val);
-            CHECK_NEG(val);
+            CHECK_ZERO(result);
+            CHECK_NEG(result);
             PRINT_UNDOCUMENTED_OP("*LAX");
         }
         break;
@@ -1164,14 +1164,126 @@ int cpu_step(void)
 
     undocumented_SAX:
         {
-            uint8_t val = cpu.a & cpu.x;
-            write_mem(addr, val);
-            AFFECTED_FLAGS(FLAG_ZERO | FLAG_NEGATIVE);
-            CHECK_ZERO(val);
-            CHECK_NEG(val);
+            uint8_t result = cpu.a & cpu.x;
+            write_mem(addr, result);
+            NO_FLAGS();
             PRINT_UNDOCUMENTED_OP("*SAX");
         }
         break;
+
+
+    case 0xEB: // *SBC
+    {
+        GET_ADDR_IMM();
+
+        const uint8_t a = cpu.a;
+        const uint8_t b = ~read_mem(addr);
+        const uint16_t result = a + b + ((cpu.status & FLAG_CARRY) ? 1 : 0);
+        const uint8_t result8 = result & 0xFF;
+
+        AFFECTED_FLAGS(FLAG_CARRY | FLAG_ZERO | FLAG_OVERFLOW | FLAG_NEGATIVE);
+        CHECK_CARRY(result & 0x0100);
+        CHECK_OVERFLOW((a ^ result8) & (b ^ result8) & 0x80);
+        CHECK_ZERO(result8);
+        CHECK_NEG(result8);
+
+        cpu.a = result8;
+        PRINT_UNDOCUMENTED_OP("*SBC");
+    }
+    break;
+
+
+    case 0xC7: // *DCP
+        GET_ADDR_ZERO();
+        goto undocumented_DCP;
+
+    case 0xD7: // *DCP
+        GET_ADDR_ZEROX();
+        goto undocumented_DCP;
+
+    case 0xCF: // *DCP
+        GET_ADDR_ABS();
+        goto undocumented_DCP;
+
+    case 0xDF: // *DCP
+        GET_ADDR_ABSX();
+        goto undocumented_DCP;
+
+    case 0xDB: // *DCP
+        GET_ADDR_ABSY();
+        goto undocumented_DCP;
+
+    case 0xC3: // *DCP
+        GET_ADDR_INDX();
+        goto undocumented_DCP;
+
+    case 0xD3: // *DCP
+        GET_ADDR_INDY();
+        goto undocumented_DCP;
+
+    undocumented_DCP:
+        {
+            const uint8_t val = read_mem(addr) - 1;
+            const uint8_t result = cpu.a - val;
+            write_mem(addr, val);
+            AFFECTED_FLAGS(FLAG_ZERO | FLAG_NEGATIVE | FLAG_CARRY);
+            CHECK_ZERO(result);
+            CHECK_NEG(result);
+            CHECK_CARRY(cpu.a >= val);
+            PRINT_UNDOCUMENTED_OP("*DCP");
+        }
+        break;
+
+
+    case 0xE7: // *ISB
+        GET_ADDR_ZERO();
+        goto undocumented_ISB;
+
+    case 0xF7: // *ISB
+        GET_ADDR_ZEROX();
+        goto undocumented_ISB;
+
+    case 0xEF: // *ISB
+        GET_ADDR_ABS();
+        goto undocumented_ISB;
+
+    case 0xFF: // *ISB
+        GET_ADDR_ABSX();
+        goto undocumented_ISB;
+
+    case 0xFB: // *ISB
+        GET_ADDR_ABSY();
+        goto undocumented_ISB;
+
+    case 0xE3: // *ISB
+        GET_ADDR_INDX();
+        goto undocumented_ISB;
+
+    case 0xF3: // *ISB
+        GET_ADDR_INDY();
+        goto undocumented_ISB;
+
+    undocumented_ISB:
+        {
+            const uint8_t val = read_mem(addr) + 1;
+            write_mem(addr, val);
+            const uint8_t a = cpu.a;
+            const uint8_t b = ~val;
+            const uint16_t result = a + b + ((cpu.status & FLAG_CARRY) ? 1 : 0);
+            const uint8_t result8 = result & 0xFF;
+
+            AFFECTED_FLAGS(FLAG_CARRY | FLAG_ZERO | FLAG_OVERFLOW | FLAG_NEGATIVE);
+            CHECK_CARRY(result & 0x0100);
+            CHECK_OVERFLOW((a ^ result8) & (b ^ result8) & 0x80);
+            CHECK_ZERO(result8);
+            CHECK_NEG(result8);
+
+            cpu.a = result8;
+            PRINT_UNDOCUMENTED_OP("*ISB");
+        }
+        break;
+
+
 
     default:
         PRINT_OP("Unkown opcode");
