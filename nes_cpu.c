@@ -1284,6 +1284,204 @@ int cpu_step(void)
         break;
 
 
+    case 0x07: // *SLO
+        GET_ADDR_ZERO();
+        goto undocumented_SLO;
+
+    case 0x17: // *SLO
+        GET_ADDR_ZEROX();
+        goto undocumented_SLO;
+
+    case 0x0F: // *SLO
+        GET_ADDR_ABS();
+        goto undocumented_SLO;
+
+    case 0x1F: // *SLO
+        GET_ADDR_ABSX();
+        goto undocumented_SLO;
+
+    case 0x1B: // *SLO
+        GET_ADDR_ABSY();
+        goto undocumented_SLO;
+
+    case 0x03: // *SLO
+        GET_ADDR_INDX();
+        goto undocumented_SLO;
+
+    case 0x13: // *SLO
+        GET_ADDR_INDY();
+        goto undocumented_SLO;
+
+    undocumented_SLO:
+        {
+            const uint8_t val = read_mem(addr);
+            const uint8_t carry = val & 0x80;
+            const uint8_t result = val << 1;
+
+            write_mem(addr, result);
+            cpu.a |= result;
+
+            AFFECTED_FLAGS(FLAG_ZERO | FLAG_CARRY);
+            CHECK_ZERO(result);
+            CHECK_CARRY(carry);
+
+            PRINT_UNDOCUMENTED_OP("*SLO");
+        }
+        break;
+
+
+
+    case 0x27: // *RLA
+        GET_ADDR_ZERO();
+        goto undocumented_RLA;
+
+    case 0x37: // *RLA
+        GET_ADDR_ZEROX();
+        goto undocumented_RLA;
+
+    case 0x2F: // *RLA
+        GET_ADDR_ABS();
+        goto undocumented_RLA;
+
+    case 0x3F: // *RLA
+        GET_ADDR_ABSX();
+        goto undocumented_RLA;
+
+    case 0x3B: // *RLA
+        GET_ADDR_ABSY();
+        goto undocumented_RLA;
+
+    case 0x23: // *RLA
+        GET_ADDR_INDX();
+        goto undocumented_RLA;
+
+    case 0x33: // *RLA
+        GET_ADDR_INDY();
+        goto undocumented_RLA;
+
+    undocumented_RLA:
+    {
+        const uint8_t val = read_mem(addr);
+        const uint8_t carry = val & 0x80;
+        const uint8_t result = (val << 1) | ((cpu.status & FLAG_CARRY) ? 1 : 0);
+
+        cpu.a &= result;
+
+        write_mem(addr, result);
+
+        AFFECTED_FLAGS(FLAG_ZERO | FLAG_NEGATIVE | FLAG_CARRY);
+        CHECK_ZERO(result);
+        CHECK_NEG(result);
+        CHECK_CARRY(carry);
+
+        PRINT_UNDOCUMENTED_OP("*RLA");
+    }
+    break;
+
+
+    case 0x47: // *SRE
+        GET_ADDR_ZERO();
+        goto undocumented_SRE;
+
+    case 0x57: // *SRE
+        GET_ADDR_ZEROX();
+        goto undocumented_SRE;
+
+    case 0x4F: // *SRE
+        GET_ADDR_ABS();
+        goto undocumented_SRE;
+
+    case 0x5F: // *SRE
+        GET_ADDR_ABSX();
+        goto undocumented_SRE;
+
+    case 0x5B: // *SRE
+        GET_ADDR_ABSY();
+        goto undocumented_SRE;
+
+    case 0x43: // *SRE
+        GET_ADDR_INDX();
+        goto undocumented_SRE;
+
+    case 0x53: // *SRE
+        GET_ADDR_INDY();
+        goto undocumented_SRE;
+
+    undocumented_SRE:
+        {
+            const uint8_t val = read_mem(addr);
+            const uint8_t carry = val & 0x01;
+            const uint8_t result = val >> 1;
+
+            write_mem(addr, result);
+
+            cpu.a ^= result;
+
+            AFFECTED_FLAGS(FLAG_ZERO | FLAG_CARRY);
+            CHECK_ZERO(result);
+            CHECK_CARRY(carry);
+
+            PRINT_UNDOCUMENTED_OP("*SRE");
+        }
+        break;
+
+
+
+    case 0x67: // *RRA
+        GET_ADDR_ZERO();
+        goto undocumented_RRA;
+
+    case 0x77: // *RRA
+        GET_ADDR_ZEROX();
+        goto undocumented_RRA;
+
+    case 0x6F: // *RRA
+        GET_ADDR_ABS();
+        goto undocumented_RRA;
+
+    case 0x7F: // *RRA
+        GET_ADDR_ABSX();
+        goto undocumented_RRA;
+
+    case 0x7B: // *RRA
+        GET_ADDR_ABSY();
+        goto undocumented_RRA;
+
+    case 0x63: // *RRA
+        GET_ADDR_INDX();
+        goto undocumented_RRA;
+
+    case 0x73: // *RRA
+        GET_ADDR_INDY();
+        goto undocumented_RRA;
+
+    undocumented_RRA:
+        {
+            const uint8_t val = read_mem(addr);
+            const uint8_t carry = val & 0x01;
+            const uint8_t resultR = (val >> 1) | ((cpu.status & FLAG_CARRY) ? 0x80 : 0);
+
+            write_mem(addr, resultR);
+
+            const uint8_t a = cpu.a;
+            const uint8_t b = resultR;
+            const uint16_t result = a + b + ((carry & FLAG_CARRY) ? 1 : 0);
+            const uint8_t result8 = result & 0xFF;
+
+            AFFECTED_FLAGS(FLAG_CARRY | FLAG_ZERO | FLAG_OVERFLOW | FLAG_NEGATIVE);
+            CHECK_CARRY(result & 0x0100);
+            CHECK_OVERFLOW((a ^ result8) & (b ^ result8) & 0x80);
+            CHECK_ZERO(result8);
+            CHECK_NEG(result8);
+
+            cpu.a = result8;
+
+            PRINT_UNDOCUMENTED_OP("*RRA");
+        }
+        break;
+
+
+
 
     default:
         PRINT_OP("Unkown opcode");
