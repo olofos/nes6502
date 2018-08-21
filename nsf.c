@@ -200,13 +200,16 @@ int main(int argc, char *argv[])
             return 1;
         }
 
-        printf("PRG ROM size: %d\n", header.prg_rom_size * 0x4000);
-
         fread(&ram[0x8000], 1, header.prg_rom_size * 0x4000, f);
 
         if(header.prg_rom_size == 1) {
             memcpy(&ram[0xC000], &ram[0x8000], 0x4000);
         }
+
+        for(uint16_t a = 0x4000; a <= 0x4017; a++) {
+            ram[a] = 0xFF;
+        }
+
 
         cpu.pc = 0xC000;
         cpu.a = 0;
@@ -214,11 +217,8 @@ int main(int argc, char *argv[])
         cpu.sp = 0xFD;
         cpu.status = 0x24;
 
-        while(cpu_step() == 0) {
+        while((cpu_step() == 0) && (cpu.sp != 0xFF)) {
         }
-
-        printf("\n");
-
     }
 }
 
