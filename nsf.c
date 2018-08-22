@@ -22,11 +22,6 @@ uint8_t read_mem(uint16_t address)
     return ram[address];
 }
 
-uint8_t log_read_mem(uint16_t address)
-{
-    return ram[address];
-}
-
 void write_mem(uint16_t address, uint8_t val)
 {
     ram[address] = val;

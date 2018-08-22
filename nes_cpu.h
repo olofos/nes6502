@@ -16,7 +16,6 @@ struct nes_cpu
 extern struct nes_cpu cpu;
 
 uint8_t read_mem(uint16_t address);
-uint8_t log_read_mem(uint16_t address);
 void write_mem(uint16_t address, uint8_t val);
 
 int cpu_step(void);

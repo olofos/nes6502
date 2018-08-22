@@ -19,16 +19,25 @@
 struct nes_cpu cpu = {.status = FLAG_CONSTANT};
 
 
+//#define DEBUG_INSTRUCTION_LOG
+
+#ifdef DEBUG_INSTRUCTION_LOG
+#define DISPRINTF(...) sprintf(__VA_ARGS__)
+#else
+#define DISPRINTF(...) do { } while(0)
+#endif
+
+
 
 #define GET_ADDR_ABS() do {                                             \
         const uint8_t d1 = read_mem(cpu.pc++);                          \
         const uint8_t d2 = read_mem(cpu.pc++);                          \
         addr = ((uint16_t)d2 << 8) + d1;                                \
-        sprintf(addr_data_string, "%02X %02X ", d1, d2);                \
+        DISPRINTF(addr_data_string, "%02X %02X ", d1, d2);                \
         if((op == 0x4C) || (op == 0x20)) {                              \
-            sprintf(addr_string, "$%04X", ((uint16_t)d2 << 8) + d1);    \
+            DISPRINTF(addr_string, "$%04X", ((uint16_t)d2 << 8) + d1);    \
         } else {                                                        \
-            sprintf(addr_string, "$%04X = %02X", ((uint16_t)d2 << 8) + d1, log_read_mem(addr)); \
+            DISPRINTF(addr_string, "$%04X = %02X", ((uint16_t)d2 << 8) + d1, read_mem(addr)); \
         }                                                               \
     } while(0)
 
@@ -36,37 +45,37 @@ struct nes_cpu cpu = {.status = FLAG_CONSTANT};
         const uint8_t d1 = read_mem(cpu.pc++);                          \
         const uint8_t d2 = read_mem(cpu.pc++);                          \
         addr = ((uint16_t)d2 << 8) + d1 + cpu.x;                        \
-        sprintf(addr_data_string, "%02X %02X ", d1, d2);                \
-        sprintf(addr_string, "$%04X,X @ %04X = %02X", ((uint16_t)d2 << 8) + d1, addr, log_read_mem(addr)); \
+        DISPRINTF(addr_data_string, "%02X %02X ", d1, d2);                \
+        DISPRINTF(addr_string, "$%04X,X @ %04X = %02X", ((uint16_t)d2 << 8) + d1, addr, read_mem(addr)); \
     } while(0)
 
 #define GET_ADDR_ABSY() do {                                            \
         const uint8_t d1 = read_mem(cpu.pc++);                          \
         const uint8_t d2 = read_mem(cpu.pc++);                          \
         addr = ((uint16_t)d2 << 8) + d1 + cpu.y;                        \
-        sprintf(addr_data_string, "%02X %02X ", d1, d2);                \
-        sprintf(addr_string, "$%04X,Y @ %04X = %02X", ((uint16_t)d2 << 8) + d1, addr, log_read_mem(addr)); \
+        DISPRINTF(addr_data_string, "%02X %02X ", d1, d2);                \
+        DISPRINTF(addr_string, "$%04X,Y @ %04X = %02X", ((uint16_t)d2 << 8) + d1, addr, read_mem(addr)); \
     } while(0)
 
 #define GET_ADDR_ZERO() do {                                            \
         const uint8_t a = read_mem(cpu.pc++);                           \
         addr = a;                                                       \
-        sprintf(addr_data_string, "%02X    ", a);                       \
-        sprintf(addr_string, "$%02X = %02X", addr & 0x0FF, log_read_mem(addr)); \
+        DISPRINTF(addr_data_string, "%02X    ", a);                       \
+        DISPRINTF(addr_string, "$%02X = %02X", addr & 0x0FF, read_mem(addr)); \
     } while(0)
 
 #define GET_ADDR_ZEROX() do {                                           \
         const uint8_t a = read_mem(cpu.pc++);                           \
         addr = (a + cpu.x) & 0x00FF;                                    \
-        sprintf(addr_data_string, "%02X    ", a);                       \
-        sprintf(addr_string, "$%02X,X @ %02X = %02X", a, addr, log_read_mem(addr)); \
+        DISPRINTF(addr_data_string, "%02X    ", a);                       \
+        DISPRINTF(addr_string, "$%02X,X @ %02X = %02X", a, addr, read_mem(addr)); \
     } while(0)
 
 #define GET_ADDR_ZEROY() do {                                           \
         const uint8_t a = read_mem(cpu.pc++);                           \
         addr = (a + cpu.y) & 0x00FF;                                    \
-        sprintf(addr_data_string, "%02X    ", a);                       \
-        sprintf(addr_string, "$%02X,Y @ %02X = %02X", a, addr, log_read_mem(addr)); \
+        DISPRINTF(addr_data_string, "%02X    ", a);                       \
+        DISPRINTF(addr_string, "$%02X,Y @ %02X = %02X", a, addr, read_mem(addr)); \
     } while(0)
 
 #define GET_ADDR_INDX() do {                                            \
@@ -75,8 +84,8 @@ struct nes_cpu cpu = {.status = FLAG_CONSTANT};
         const uint8_t d3 = read_mem(a);                                 \
         const uint8_t d4 = read_mem((a+1) & 0xFF);                      \
         addr = ((uint16_t)d4 << 8) | (d3 & 0x00FF);                     \
-        sprintf(addr_data_string, "%02X    ", d1);                      \
-        sprintf(addr_string, "($%02X,X) @ %02X = %04X = %02X", d1, a, addr, log_read_mem(addr)); \
+        DISPRINTF(addr_data_string, "%02X    ", d1);                      \
+        DISPRINTF(addr_string, "($%02X,X) @ %02X = %04X = %02X", d1, a, addr, read_mem(addr)); \
     } while(0)
 
 #define GET_ADDR_INDY() do {                                            \
@@ -86,8 +95,8 @@ struct nes_cpu cpu = {.status = FLAG_CONSTANT};
         const uint8_t d4 = read_mem((a1+1) & 0x00FF);                   \
         const uint16_t a2 = (((uint16_t)d4 << 8) | (d3 & 0x00FF));      \
         addr = a2 + cpu.y;                                              \
-        sprintf(addr_data_string, "%02X    ", d1);                      \
-        sprintf(addr_string, "($%02X),Y = %04X @ %04X = %02X", a1, a2, addr, log_read_mem(addr)); \
+        DISPRINTF(addr_data_string, "%02X    ", d1);                      \
+        DISPRINTF(addr_string, "($%02X),Y = %04X @ %04X = %02X", a1, a2, addr, read_mem(addr)); \
     } while(0)
 
 #define GET_ADDR_IND() do {                                             \
@@ -97,30 +106,30 @@ struct nes_cpu cpu = {.status = FLAG_CONSTANT};
         const uint8_t d3 = read_mem(a);                                 \
         const uint8_t d4 = read_mem(((uint16_t)d2 << 8) + ((d1+1) & 0xff)); \
         addr = ((uint16_t)d4 << 8) | (d3 & 0x00FF);                     \
-        sprintf(addr_data_string, "%02X %02X ", d1, d2);                \
-        sprintf(addr_string, "($%04X) = %04X", a, addr);                \
+        DISPRINTF(addr_data_string, "%02X %02X ", d1, d2);                \
+        DISPRINTF(addr_string, "($%04X) = %04X", a, addr);                \
     } while(0)
 
 #define GET_ADDR_IMM() do {                                             \
         addr = cpu.pc++;                                                \
-        sprintf(addr_data_string, "%02X    ", log_read_mem(addr));      \
-        sprintf(addr_string, "#$%02X", log_read_mem(addr));             \
+        DISPRINTF(addr_data_string, "%02X    ", read_mem(addr));      \
+        DISPRINTF(addr_string, "#$%02X", read_mem(addr));             \
     } while(0)
 
 #define GET_ADDR_REL() do {                                             \
         const int8_t offset = read_mem(cpu.pc++);                       \
         addr  = cpu.pc + offset;                                        \
-        sprintf(addr_data_string, "%02X    ", (uint8_t) offset);        \
-        sprintf(addr_string, "$%04X", cpu.pc + offset);                 \
+        DISPRINTF(addr_data_string, "%02X    ", (uint8_t) offset);        \
+        DISPRINTF(addr_string, "$%04X", cpu.pc + offset);                 \
     } while(0)
 
 #define GET_ADDR_IMPL() do {                    \
-        sprintf(addr_data_string, "      ");    \
+        DISPRINTF(addr_data_string, "      ");    \
     } while(0);
 
 #define GET_ADDR_A() do {                       \
-        sprintf(addr_data_string, "      ");    \
-        sprintf(addr_string, "A");              \
+        DISPRINTF(addr_data_string, "      ");    \
+        DISPRINTF(addr_string, "A");              \
     } while(0);
 
 #define ARITHM_OP(op) /**/                      \
@@ -156,21 +165,28 @@ case op+0x1C: GET_ADDR_ABSX();                  \
 #define BRANCH_IF_SET(flag) do { if(cpu.status & (flag)) cpu.pc = addr; } while(0)
 #define BRANCH_IF_CLEAR(flag) do { if(!(cpu.status & (flag))) cpu.pc = addr; } while(0)
 
+#ifdef DEBUG_INSTRUCTION_LOG
 #define PRINT_OP(name) printf("%04X  %02X %s %s %-28sA:%02X X:%02X Y:%02X P:%02X SP:%02X\n", addr_op, op, addr_data_string, name, addr_string, old_a, old_x, old_y, old_status, old_sp)
 #define PRINT_UNDOCUMENTED_OP(name) printf("%04X  %02X %s%s %-28sA:%02X X:%02X Y:%02X P:%02X SP:%02X\n", addr_op, op, addr_data_string, name, addr_string, old_a, old_x, old_y, old_status, old_sp)
+#else
+#define PRINT_OP(name) do {} while(0)
+#define PRINT_UNDOCUMENTED_OP(name) do {} while(0)
+#endif
 
 
 
 int cpu_step(void)
 {
-    uint16_t addr_op = cpu.pc;
     uint8_t op = read_mem(cpu.pc++);
     uint16_t addr;
 
+#ifdef DEBUG_INSTRUCTION_LOG
     char addr_string[32] = "";
     char addr_data_string[32] = "";
 
+    uint16_t addr_op = cpu.pc;
     uint8_t old_a = cpu.a, old_x = cpu.x, old_y = cpu.y, old_sp = cpu.sp, old_status = cpu.status;
+#endif
 
     switch(op)
     {
