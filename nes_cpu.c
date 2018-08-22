@@ -18,9 +18,6 @@
 
 struct nes_cpu cpu = {.status = FLAG_CONSTANT};
 
-
-//#define DEBUG_INSTRUCTION_LOG
-
 #ifdef DEBUG_INSTRUCTION_LOG
 #define DISPRINTF(...) sprintf(__VA_ARGS__)
 #else
@@ -184,7 +181,7 @@ int cpu_step(void)
     char addr_string[32] = "";
     char addr_data_string[32] = "";
 
-    uint16_t addr_op = cpu.pc;
+    uint16_t addr_op = cpu.pc-1;
     uint8_t old_a = cpu.a, old_x = cpu.x, old_y = cpu.y, old_sp = cpu.sp, old_status = cpu.status;
 #endif
 
