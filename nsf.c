@@ -4,41 +4,10 @@
 #include <stdlib.h>
 
 #include "nes_cpu.h"
+#include "ines.h"
+#include "nsf.h"
 
 #define FLAT_RAM 1
-
-struct nsf_header
-{
-    uint8_t magic[5];
-    uint8_t version;
-    uint8_t num_songs;
-    uint8_t start_song;
-    uint16_t load;
-    uint16_t init;
-    uint16_t play;
-    char name[32];
-    char artist[32];
-    char copyright[32];
-    uint16_t ntsc_speed;
-    uint8_t banks[8];
-    uint16_t pal_speed;
-    uint8_t pal_ntsc_flags;
-    uint8_t chip_flags;
-    uint8_t reserved[4];
-};
-
-struct ines_header
-{
-    uint8_t magic[4];
-    uint8_t prg_rom_size;
-    uint8_t chr_rom_size;
-    uint8_t flags6;
-    uint8_t flags7;
-    uint8_t prg_ram_size;
-    uint8_t flags9;
-    uint8_t flags10;
-    uint8_t reserved[5];
-};
 
 #define BANK_SIZE 4096
 #define ROM_BASE 0x8000
