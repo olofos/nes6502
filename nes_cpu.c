@@ -15,15 +15,34 @@ struct nes_cpu cpu = {.status = FLAG_CONSTANT};
 #define DISPRINTF(...) do { } while(0)
 #endif
 
+static const uint8_t clock_table [256] =
+{// 0 1 2 3 4 5 6 7 8 9 A B C D E F
+    7,6,2,8,3,3,5,5,3,2,2,2,4,4,6,6,// 0
+    3,5,2,8,4,4,6,6,2,4,2,7,4,4,7,7,// 1
+    6,6,2,8,3,3,5,5,4,2,2,2,4,4,6,6,// 2
+    3,5,2,8,4,4,6,6,2,4,2,7,4,4,7,7,// 3
+    6,6,2,8,3,3,5,5,3,2,2,2,3,4,6,6,// 4
+    3,5,2,8,4,4,6,6,2,4,2,7,4,4,7,7,// 5
+    6,6,2,8,3,3,5,5,4,2,2,2,5,4,6,6,// 6
+    3,5,2,8,4,4,6,6,2,4,2,7,4,4,7,7,// 7
+    2,6,2,6,3,3,3,3,2,2,2,2,4,4,4,4,// 8
+    3,6,2,6,4,4,4,4,2,5,2,5,5,5,5,5,// 9
+    2,6,2,6,3,3,3,3,2,2,2,2,4,4,4,4,// A
+    3,5,2,5,4,4,4,4,2,4,2,4,4,4,4,4,// B
+    2,6,2,8,3,3,5,5,2,2,2,2,4,4,6,6,// C
+    3,5,2,8,4,4,6,6,2,4,2,7,4,4,7,7,// D
+    2,6,2,8,3,3,5,5,2,2,2,2,4,4,6,6,// E
+    3,5,0,8,4,4,6,6,2,4,2,7,4,4,7,7 // F
+};
 
 
 #define GET_ADDR_ABS() do {                                             \
         const uint8_t d1 = read_mem(cpu.pc++);                          \
         const uint8_t d2 = read_mem(cpu.pc++);                          \
         addr = ((uint16_t)d2 << 8) + d1;                                \
-        DISPRINTF(addr_data_string, "%02X %02X ", d1, d2);                \
+        DISPRINTF(addr_data_string, "%02X %02X ", d1, d2);              \
         if((op == 0x4C) || (op == 0x20)) {                              \
-            DISPRINTF(addr_string, "$%04X", ((uint16_t)d2 << 8) + d1);    \
+            DISPRINTF(addr_string, "$%04X", ((uint16_t)d2 << 8) + d1);  \
         } else {                                                        \
             DISPRINTF(addr_string, "$%04X = %02X", ((uint16_t)d2 << 8) + d1, read_mem(addr)); \
         }                                                               \
@@ -33,7 +52,7 @@ struct nes_cpu cpu = {.status = FLAG_CONSTANT};
         const uint8_t d1 = read_mem(cpu.pc++);                          \
         const uint8_t d2 = read_mem(cpu.pc++);                          \
         addr = ((uint16_t)d2 << 8) + d1 + cpu.x;                        \
-        DISPRINTF(addr_data_string, "%02X %02X ", d1, d2);                \
+        DISPRINTF(addr_data_string, "%02X %02X ", d1, d2);              \
         DISPRINTF(addr_string, "$%04X,X @ %04X = %02X", ((uint16_t)d2 << 8) + d1, addr, read_mem(addr)); \
     } while(0)
 
@@ -41,28 +60,28 @@ struct nes_cpu cpu = {.status = FLAG_CONSTANT};
         const uint8_t d1 = read_mem(cpu.pc++);                          \
         const uint8_t d2 = read_mem(cpu.pc++);                          \
         addr = ((uint16_t)d2 << 8) + d1 + cpu.y;                        \
-        DISPRINTF(addr_data_string, "%02X %02X ", d1, d2);                \
+        DISPRINTF(addr_data_string, "%02X %02X ", d1, d2);              \
         DISPRINTF(addr_string, "$%04X,Y @ %04X = %02X", ((uint16_t)d2 << 8) + d1, addr, read_mem(addr)); \
     } while(0)
 
 #define GET_ADDR_ZERO() do {                                            \
         const uint8_t a = read_mem(cpu.pc++);                           \
         addr = a;                                                       \
-        DISPRINTF(addr_data_string, "%02X    ", a);                       \
-        DISPRINTF(addr_string, "$%02X = %02X", addr & 0x0FF, read_mem(addr)); \
+        DISPRINTF(addr_data_string, "%02X    ", a);                     \
+        DISPRINTF(addr_string, "$%02X = %02X", addr & 0x00FF, read_mem(addr)); \
     } while(0)
 
 #define GET_ADDR_ZEROX() do {                                           \
         const uint8_t a = read_mem(cpu.pc++);                           \
         addr = (a + cpu.x) & 0x00FF;                                    \
-        DISPRINTF(addr_data_string, "%02X    ", a);                       \
+        DISPRINTF(addr_data_string, "%02X    ", a);                     \
         DISPRINTF(addr_string, "$%02X,X @ %02X = %02X", a, addr, read_mem(addr)); \
     } while(0)
 
 #define GET_ADDR_ZEROY() do {                                           \
         const uint8_t a = read_mem(cpu.pc++);                           \
         addr = (a + cpu.y) & 0x00FF;                                    \
-        DISPRINTF(addr_data_string, "%02X    ", a);                       \
+        DISPRINTF(addr_data_string, "%02X    ", a);                     \
         DISPRINTF(addr_string, "$%02X,Y @ %02X = %02X", a, addr, read_mem(addr)); \
     } while(0)
 
@@ -72,7 +91,7 @@ struct nes_cpu cpu = {.status = FLAG_CONSTANT};
         const uint8_t d3 = read_mem(a);                                 \
         const uint8_t d4 = read_mem((a+1) & 0xFF);                      \
         addr = ((uint16_t)d4 << 8) | (d3 & 0x00FF);                     \
-        DISPRINTF(addr_data_string, "%02X    ", d1);                      \
+        DISPRINTF(addr_data_string, "%02X    ", d1);                    \
         DISPRINTF(addr_string, "($%02X,X) @ %02X = %04X = %02X", d1, a, addr, read_mem(addr)); \
     } while(0)
 
@@ -83,7 +102,7 @@ struct nes_cpu cpu = {.status = FLAG_CONSTANT};
         const uint8_t d4 = read_mem((a1+1) & 0x00FF);                   \
         const uint16_t a2 = (((uint16_t)d4 << 8) | (d3 & 0x00FF));      \
         addr = a2 + cpu.y;                                              \
-        DISPRINTF(addr_data_string, "%02X    ", d1);                      \
+        DISPRINTF(addr_data_string, "%02X    ", d1);                    \
         DISPRINTF(addr_string, "($%02X),Y = %04X @ %04X = %02X", a1, a2, addr, read_mem(addr)); \
     } while(0)
 
@@ -94,48 +113,90 @@ struct nes_cpu cpu = {.status = FLAG_CONSTANT};
         const uint8_t d3 = read_mem(a);                                 \
         const uint8_t d4 = read_mem(((uint16_t)d2 << 8) + ((d1+1) & 0xff)); \
         addr = ((uint16_t)d4 << 8) | (d3 & 0x00FF);                     \
-        DISPRINTF(addr_data_string, "%02X %02X ", d1, d2);                \
-        DISPRINTF(addr_string, "($%04X) = %04X", a, addr);                \
+        DISPRINTF(addr_data_string, "%02X %02X ", d1, d2);              \
+        DISPRINTF(addr_string, "($%04X) = %04X", a, addr);              \
     } while(0)
 
 #define GET_ADDR_IMM() do {                                             \
         addr = cpu.pc++;                                                \
-        DISPRINTF(addr_data_string, "%02X    ", read_mem(addr));      \
-        DISPRINTF(addr_string, "#$%02X", read_mem(addr));             \
+        DISPRINTF(addr_data_string, "%02X    ", read_mem(addr));        \
+        DISPRINTF(addr_string, "#$%02X", read_mem(addr));               \
     } while(0)
 
 #define GET_ADDR_REL() do {                                             \
         const int8_t offset = read_mem(cpu.pc++);                       \
         addr  = cpu.pc + offset;                                        \
-        DISPRINTF(addr_data_string, "%02X    ", (uint8_t) offset);        \
-        DISPRINTF(addr_string, "$%04X", cpu.pc + offset);                 \
+        DISPRINTF(addr_data_string, "%02X    ", (uint8_t) offset);      \
+        DISPRINTF(addr_string, "$%04X", cpu.pc + offset);               \
     } while(0)
 
-#define GET_ADDR_IMPL() do {                    \
-        DISPRINTF(addr_data_string, "      ");    \
-    } while(0);
 
 #define GET_ADDR_A() do {                       \
-        DISPRINTF(addr_data_string, "      ");    \
-        DISPRINTF(addr_string, "A");              \
-    } while(0);
+        DISPRINTF(addr_string, "A");            \
+    } while(0)
+
+#define GET_VALUE_ABS() do { \
+        GET_ADDR_ABS();      \
+        value = read_mem(addr); \
+    } while(0)
+
+#define GET_VALUE_ABSX() do {                   \
+        GET_ADDR_ABSX();                        \
+        value = read_mem(addr);                 \
+    } while(0)
+
+#define GET_VALUE_ABSY() do {                   \
+        GET_ADDR_ABSY();                        \
+        value = read_mem(addr);                 \
+    } while(0)
+
+#define GET_VALUE_ZERO() do {                   \
+        GET_ADDR_ZERO();                        \
+        value = read_mem(addr);                 \
+    } while(0)
+
+#define GET_VALUE_ZEROX() do {                  \
+        GET_ADDR_ZEROX();                       \
+        value = read_mem(addr);                 \
+    } while(0)
+
+#define GET_VALUE_ZEROY() do {                  \
+        GET_ADDR_ZEROY();                       \
+        value = read_mem(addr);                 \
+    } while(0)
+
+#define GET_VALUE_INDX() do {                   \
+        GET_ADDR_INDX();                        \
+        value = read_mem(addr);                 \
+    } while(0)
+
+#define GET_VALUE_INDY() do {                   \
+        GET_ADDR_INDY();                        \
+        value = read_mem(addr);                 \
+    } while(0)
+
+#define GET_VALUE_IMM() do {                    \
+        GET_ADDR_IMM();                         \
+        value = read_mem(addr);                 \
+    } while(0)
+
 
 #define ARITHM_OP(op) /**/                      \
-case op: GET_ADDR_INDX();                       \
+case op: GET_VALUE_INDX();                       \
     goto perform_##op;                          \
-case op+0x10: GET_ADDR_INDY();                  \
+case op+0x10: GET_VALUE_INDY();                  \
     goto perform_##op;                          \
-case op+0x04: GET_ADDR_ZERO();                  \
+case op+0x04: GET_VALUE_ZERO();                  \
     goto perform_##op;                          \
-case op+0x14: GET_ADDR_ZEROX();                 \
+case op+0x14: GET_VALUE_ZEROX();                 \
     goto perform_##op;                          \
-case op+0x08: GET_ADDR_IMM();                   \
+case op+0x08: GET_VALUE_IMM();                   \
     goto perform_##op;                          \
-case op+0x18: GET_ADDR_ABSY();                  \
+case op+0x18: GET_VALUE_ABSY();                  \
     goto perform_##op;                          \
-case op+0x0C: GET_ADDR_ABS();                   \
+case op+0x0C: GET_VALUE_ABS();                   \
     goto perform_##op;                          \
-case op+0x1C: GET_ADDR_ABSX();                  \
+case op+0x1C: GET_VALUE_ABSX();                  \
     goto perform_##op;                          \
     perform_##op
 
@@ -166,11 +227,12 @@ case op+0x1C: GET_ADDR_ABSX();                  \
 int cpu_step(void)
 {
     uint8_t op = read_mem(cpu.pc++);
+    uint8_t value;
     uint16_t addr;
 
 #ifdef DEBUG_INSTRUCTION_LOG
     char addr_string[32] = "";
-    char addr_data_string[32] = "";
+    char addr_data_string[32] = "      ";
 
     uint16_t addr_op = cpu.pc-1;
     uint8_t old_a = cpu.a, old_x = cpu.x, old_y = cpu.y, old_sp = cpu.sp, old_status = cpu.status;
@@ -188,6 +250,7 @@ int cpu_step(void)
         cpu.status &= ~FLAG_BREAK;
         cpu.irq_pending &= ~FLAG_NMI_PENDING;
         cpu.pc = a;
+        cpu.clock += 7;
     } else if(!(cpu.status & FLAG_INTERRUPT) && (cpu.irq_pending & FLAG_IRQ_PENDING)) {
         const uint8_t lo = read_mem(0xFFFE);
         const uint8_t hi = read_mem(0xFFFF);
@@ -200,11 +263,13 @@ int cpu_step(void)
         cpu.status &= ~FLAG_BREAK;
         // The IRQ is level triggered and hence FLAG_IRQ_PENDING should not be reset here
         cpu.pc = a;
+        cpu.clock += 7;
     } else {
+        cpu.clock += clock_table[op];
         switch(op)
         {
         ARITHM_OP(0x01):
-            cpu.a |= read_mem(addr);
+            cpu.a |= value;
             AFFECTED_FLAGS(FLAG_ZERO | FLAG_NEGATIVE);
             CHECK_ZERO(cpu.a);
             CHECK_NEG(cpu.a);
@@ -213,7 +278,7 @@ int cpu_step(void)
             break;
 
         ARITHM_OP(0x21):
-            cpu.a &= read_mem(addr);
+            cpu.a &= value;
             AFFECTED_FLAGS(FLAG_ZERO | FLAG_NEGATIVE);
             CHECK_ZERO(cpu.a);
             CHECK_NEG(cpu.a);
@@ -221,7 +286,7 @@ int cpu_step(void)
             break;
 
         ARITHM_OP(0x41):
-            cpu.a ^= read_mem(addr);
+            cpu.a ^= value;
             AFFECTED_FLAGS(FLAG_ZERO | FLAG_NEGATIVE);
             CHECK_ZERO(cpu.a);
             CHECK_NEG(cpu.a);
@@ -231,7 +296,7 @@ int cpu_step(void)
         ARITHM_OP(0x61):
             {
                 const uint8_t a = cpu.a;
-                const uint8_t b = read_mem(addr);
+                const uint8_t b = value;
                 const uint16_t result = a + b + ((cpu.status & FLAG_CARRY) ? 1 : 0);
                 const uint8_t result8 = result & 0xFF;
 
@@ -250,7 +315,7 @@ int cpu_step(void)
         ARITHM_OP(0xE1):
             {
                 const uint8_t a = cpu.a;
-                const uint8_t b = ~read_mem(addr);
+                const uint8_t b = ~value;
                 const uint16_t result = a + b + ((cpu.status & FLAG_CARRY) ? 1 : 0);
                 const uint8_t result8 = result & 0xFF;
 
@@ -269,7 +334,7 @@ int cpu_step(void)
         ARITHM_OP(0xC1):
             {
                 const uint8_t a = cpu.a;
-                const uint8_t b = read_mem(addr);
+                const uint8_t b = value;
                 const uint8_t result = a - b;
                 AFFECTED_FLAGS(FLAG_CARRY | FLAG_ZERO | FLAG_NEGATIVE);
                 CHECK_CARRY(a >= b);
@@ -282,21 +347,21 @@ int cpu_step(void)
 
 
         case 0xE0: // CPX imm
-            GET_ADDR_IMM();
+            GET_VALUE_IMM();
             goto perform_CPX;
 
         case 0xE4: // CPX zero
-            GET_ADDR_ZERO();
+            GET_VALUE_ZERO();
             goto perform_CPX;
 
         case 0xEC: // CPX abs
-            GET_ADDR_ABS();
+            GET_VALUE_ABS();
             goto perform_CPX;
 
         perform_CPX:
             {
                 const uint8_t a = cpu.x;
-                const uint8_t b = read_mem(addr);
+                const uint8_t b = value;
                 const uint8_t result = a - b;
                 AFFECTED_FLAGS(FLAG_CARRY | FLAG_ZERO | FLAG_NEGATIVE);
                 CHECK_CARRY(a >= b);
@@ -309,21 +374,21 @@ int cpu_step(void)
 
 
         case 0xC0: // CPY imm
-            GET_ADDR_IMM();
+            GET_VALUE_IMM();
             goto perform_CPY;
 
         case 0xC4: // CPY zero
-            GET_ADDR_ZERO();
+            GET_VALUE_ZERO();
             goto perform_CPY;
 
         case 0xCC: // CPY abs
-            GET_ADDR_ABS();
+            GET_VALUE_ABS();
             goto perform_CPY;
 
         perform_CPY:
             {
                 const uint8_t a = cpu.y;
-                const uint8_t b = read_mem(addr);
+                const uint8_t b = value;
                 const uint8_t result = a - b;
                 AFFECTED_FLAGS(FLAG_CARRY | FLAG_ZERO | FLAG_NEGATIVE);
                 CHECK_CARRY(a >= b);
@@ -337,16 +402,16 @@ int cpu_step(void)
 
 
         case 0x24: // BIT zero
-            GET_ADDR_ZERO();
+            GET_VALUE_ZERO();
             goto perform_BIT;
 
         case 0x2C: // BIT abs;
-            GET_ADDR_ABS();
+            GET_VALUE_ABS();
             goto perform_BIT;
 
         perform_BIT:
             {
-                const uint8_t b = read_mem(addr);
+                const uint8_t b = value;
                 const uint8_t result = cpu.a & b;
 
                 AFFECTED_FLAGS(FLAG_ZERO | FLAG_OVERFLOW | FLAG_NEGATIVE);
@@ -359,7 +424,6 @@ int cpu_step(void)
 
 
         case 0xCA: // DEX impl
-            GET_ADDR_IMPL();
             cpu.x--;
             AFFECTED_FLAGS(FLAG_ZERO | FLAG_NEGATIVE);
             CHECK_ZERO(cpu.x);
@@ -368,7 +432,6 @@ int cpu_step(void)
             break;
 
         case 0x88: // DEY impl
-            GET_ADDR_IMPL();
             cpu.y--;
             AFFECTED_FLAGS(FLAG_ZERO | FLAG_NEGATIVE);
             CHECK_ZERO(cpu.y);
@@ -377,7 +440,6 @@ int cpu_step(void)
             break;
 
         case 0xE8: // INX impl
-            GET_ADDR_IMPL();
             cpu.x++;
             AFFECTED_FLAGS(FLAG_ZERO | FLAG_NEGATIVE);
             CHECK_ZERO(cpu.x);
@@ -386,7 +448,6 @@ int cpu_step(void)
             break;
 
         case 0xC8: // INY impl
-            GET_ADDR_IMPL();
             cpu.y++;
             AFFECTED_FLAGS(FLAG_ZERO | FLAG_NEGATIVE);
             CHECK_ZERO(cpu.y);
@@ -668,39 +729,39 @@ int cpu_step(void)
 
 
         case 0xA9: // LDA imm
-            GET_ADDR_IMM();
+            GET_VALUE_IMM();
             goto perform_LDA;
 
         case 0xA5: // LDA zero
-            GET_ADDR_ZERO();
+            GET_VALUE_ZERO();
             goto perform_LDA;
 
         case 0xB5: // LDA zero, X
-            GET_ADDR_ZEROX();
+            GET_VALUE_ZEROX();
             goto perform_LDA;
 
         case 0xAD: // LDA abs
-            GET_ADDR_ABS();
+            GET_VALUE_ABS();
             goto perform_LDA;
 
         case 0xBD: // LDA abs, X
-            GET_ADDR_ABSX();
+            GET_VALUE_ABSX();
             goto perform_LDA;
 
         case 0xB9: // LDA abs, Y
-            GET_ADDR_ABSY();
+            GET_VALUE_ABSY();
             goto perform_LDA;
 
         case 0xA1: // LDA (ind, X)
-            GET_ADDR_INDX();
+            GET_VALUE_INDX();
             goto perform_LDA;
 
         case 0xB1: // LDA (ind), Y
-            GET_ADDR_INDY();
+            GET_VALUE_INDY();
             goto perform_LDA;
 
         perform_LDA:
-            cpu.a = read_mem(addr);
+            cpu.a = value;
             AFFECTED_FLAGS(FLAG_ZERO | FLAG_NEGATIVE);
             CHECK_ZERO(cpu.a);
             CHECK_NEG(cpu.a);
@@ -710,27 +771,27 @@ int cpu_step(void)
 
 
         case 0xA2: // LDX imm
-            GET_ADDR_IMM();
+            GET_VALUE_IMM();
             goto perform_LDX;
 
         case 0xA6: // LDX zero
-            GET_ADDR_ZERO();
+            GET_VALUE_ZERO();
             goto perform_LDX;
 
         case 0xB6: // LDX zero, Y
-            GET_ADDR_ZEROY();
+            GET_VALUE_ZEROY();
             goto perform_LDX;
 
         case 0xAE: // LDX abs
-            GET_ADDR_ABS();
+            GET_VALUE_ABS();
             goto perform_LDX;
 
         case 0xBE: // LDX abs, Y
-            GET_ADDR_ABSY();
+            GET_VALUE_ABSY();
             goto perform_LDX;
 
         perform_LDX:
-            cpu.x = read_mem(addr);
+            cpu.x = value;
             AFFECTED_FLAGS(FLAG_ZERO | FLAG_NEGATIVE);
             CHECK_ZERO(cpu.x);
             CHECK_NEG(cpu.x);
@@ -740,27 +801,27 @@ int cpu_step(void)
 
 
         case 0xA0: // LDY imm
-            GET_ADDR_IMM();
+            GET_VALUE_IMM();
             goto perform_LDY;
 
         case 0xA4: // LDY zero
-            GET_ADDR_ZERO();
+            GET_VALUE_ZERO();
             goto perform_LDY;
 
         case 0xB4: // LDY zero, X
-            GET_ADDR_ZEROX();
+            GET_VALUE_ZEROX();
             goto perform_LDY;
 
         case 0xAC: // LDY abs
-            GET_ADDR_ABS();
+            GET_VALUE_ABS();
             goto perform_LDY;
 
         case 0xBC: // LDY abs, X
-            GET_ADDR_ABSX();
+            GET_VALUE_ABSX();
             goto perform_LDY;
 
         perform_LDY:
-            cpu.y = read_mem(addr);
+            cpu.y = value;
             AFFECTED_FLAGS(FLAG_ZERO | FLAG_NEGATIVE);
             CHECK_ZERO(cpu.y);
             CHECK_NEG(cpu.y);
@@ -852,21 +913,18 @@ int cpu_step(void)
 
 
         case 0x48: // PHA impl
-            GET_ADDR_IMPL();
             STACK_PUSH(cpu.a);
             NO_FLAGS();
             PRINT_OP("PHA");
             break;
 
         case 0x08: // PHP impl
-            GET_ADDR_IMPL();
             STACK_PUSH(cpu.status | FLAG_BREAK);
             NO_FLAGS();
             PRINT_OP("PHP");
             break;
 
         case 0x68: // PLA impl
-            GET_ADDR_IMPL();
             cpu.a = STACK_POP();
             AFFECTED_FLAGS(FLAG_ZERO | FLAG_NEGATIVE);
             CHECK_ZERO(cpu.a);
@@ -875,13 +933,11 @@ int cpu_step(void)
             break;
 
         case 0x28: // PLP impl
-            GET_ADDR_IMPL();
             cpu.status = (STACK_POP() & ~FLAG_BREAK) | FLAG_CONSTANT;
             PRINT_OP("PLP");
             break;
 
         case 0xA8: // TAY impl
-            GET_ADDR_IMPL();
             cpu.y = cpu.a;
             AFFECTED_FLAGS(FLAG_ZERO | FLAG_NEGATIVE);
             CHECK_ZERO(cpu.y);
@@ -890,7 +946,6 @@ int cpu_step(void)
             break;
 
         case 0xAA: // TAX impl
-            GET_ADDR_IMPL();
             cpu.x = cpu.a;
             AFFECTED_FLAGS(FLAG_ZERO | FLAG_NEGATIVE);
             CHECK_ZERO(cpu.x);
@@ -899,7 +954,6 @@ int cpu_step(void)
             break;
 
         case 0xBA: // TSX impl
-            GET_ADDR_IMPL();
             cpu.x = cpu.sp;
             AFFECTED_FLAGS(FLAG_ZERO | FLAG_NEGATIVE);
             CHECK_ZERO(cpu.x);
@@ -908,7 +962,6 @@ int cpu_step(void)
             break;
 
         case 0x8A: // TXA impl
-            GET_ADDR_IMPL();
             cpu.a = cpu.x;
             AFFECTED_FLAGS(FLAG_ZERO | FLAG_NEGATIVE);
             CHECK_ZERO(cpu.a);
@@ -917,14 +970,12 @@ int cpu_step(void)
             break;
 
         case 0x9A: // TXS impl
-            GET_ADDR_IMPL();
             cpu.sp = cpu.x;
             NO_FLAGS();
             PRINT_OP("TXS");
             break;
 
         case 0x98: // TYA impl
-            GET_ADDR_IMPL();
             cpu.a = cpu.y;
             AFFECTED_FLAGS(FLAG_ZERO | FLAG_NEGATIVE);
             CHECK_ZERO(cpu.a);
@@ -934,43 +985,36 @@ int cpu_step(void)
 
 
         case 0x18: // CLC impl
-            GET_ADDR_IMPL();
             cpu.status &= ~FLAG_CARRY;
             PRINT_OP("CLC");
             break;
 
         case 0xD8: // CLD impl
-            GET_ADDR_IMPL();
             cpu.status &= ~FLAG_DECIMAL;
             PRINT_OP("CLD");
             break;
 
         case 0x58: // CLI impl
-            GET_ADDR_IMPL();
             cpu.status &= ~FLAG_INTERRUPT;
             PRINT_OP("CLI");
             break;
 
         case 0xB8: // CLV impl
-            GET_ADDR_IMPL();
             cpu.status &= ~FLAG_OVERFLOW;
             PRINT_OP("CLV");
             break;
 
         case 0x38: // SEC impl
-            GET_ADDR_IMPL();
             cpu.status |= FLAG_CARRY;
             PRINT_OP("SEC");
             break;
 
         case 0xF8: // SEC impl
-            GET_ADDR_IMPL();
             cpu.status |= FLAG_DECIMAL;
             PRINT_OP("SED");
             break;
 
         case 0x78: // SEI impl
-            GET_ADDR_IMPL();
             cpu.status |= FLAG_INTERRUPT;
             PRINT_OP("SEI");
             break;
@@ -1003,7 +1047,6 @@ int cpu_step(void)
 
         case 0x60: // RTS impl
         {
-            GET_ADDR_IMPL();
             const uint8_t lo = STACK_POP();
             const uint8_t hi = STACK_POP();
             cpu.pc = (((uint16_t) hi << 8) | lo) + 1;
@@ -1014,7 +1057,6 @@ int cpu_step(void)
 
         case 0x40: // RTI impl
         {
-            GET_ADDR_IMPL();
             const uint8_t s = STACK_POP();
             const uint8_t lo = STACK_POP();
             const uint8_t hi = STACK_POP();
@@ -1075,14 +1117,12 @@ int cpu_step(void)
             break;
 
         case 0xEA: // NOP impl
-            GET_ADDR_IMPL();
             NO_FLAGS();
             PRINT_OP("NOP");
             break;
 
         case 0x00: // BRK impl
         {
-            GET_ADDR_IMPL();
             const uint8_t lo = read_mem(0xFFFE);
             const uint8_t hi = read_mem(0xFFFF);
             const uint16_t a = ((uint16_t) hi << 8) | lo;
@@ -1104,7 +1144,6 @@ int cpu_step(void)
         case 0x7A:
         case 0xDA:
         case 0xFA:
-            GET_ADDR_IMPL();
             goto undocumented_NOP;
 
         case 0x04: // *NOP zero
@@ -1150,32 +1189,32 @@ int cpu_step(void)
 
 
         case 0xA7: // *LAX
-            GET_ADDR_ZERO();
+            GET_VALUE_ZERO();
             goto undocumented_LAX;
 
         case 0xB7: // *LAX
-            GET_ADDR_ZEROY();
+            GET_VALUE_ZEROY();
             goto undocumented_LAX;
 
         case 0xAF: // *LAX
-            GET_ADDR_ABS();
+            GET_VALUE_ABS();
             goto undocumented_LAX;
 
         case 0xBF: // *LAX
-            GET_ADDR_ABSY();
+            GET_VALUE_ABSY();
             goto undocumented_LAX;
 
         case 0xA3: // *LAX
-            GET_ADDR_INDX();
+            GET_VALUE_INDX();
             goto undocumented_LAX;
 
         case 0xB3: // *LAX
-            GET_ADDR_INDY();
+            GET_VALUE_INDY();
             goto undocumented_LAX;
 
         undocumented_LAX:
             {
-                const uint8_t result = read_mem(addr);
+                const uint8_t result = value;
                 cpu.x = cpu.a = result;
                 AFFECTED_FLAGS(FLAG_ZERO | FLAG_NEGATIVE);
                 CHECK_ZERO(result);
@@ -1214,10 +1253,10 @@ int cpu_step(void)
 
         case 0xEB: // *SBC
         {
-            GET_ADDR_IMM();
+            GET_VALUE_IMM();
 
             const uint8_t a = cpu.a;
-            const uint8_t b = ~read_mem(addr);
+            const uint8_t b = ~value;
             const uint16_t result = a + b + ((cpu.status & FLAG_CARRY) ? 1 : 0);
             const uint8_t result8 = result & 0xFF;
 
