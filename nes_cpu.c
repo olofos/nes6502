@@ -15,6 +15,9 @@ struct nes_cpu cpu = {.status = FLAG_CONSTANT};
 #define DISPRINTF(...) do { } while(0)
 #endif
 
+#define read_mem_zero(addr) read_mem(addr&0x00FF)
+#define write_mem_zero(addr,val) write_mem(addr&0x00FF,val)
+
 static const uint8_t clock_table [256] =
 {// 0 1 2 3 4 5 6 7 8 9 A B C D E F
     7,6,2,8,3,3,5,5,3,2,2,2,4,4,6,6,// 0
@@ -92,8 +95,8 @@ static const uint8_t clock_table [256] =
 #define GET_ADDR_INDX() do {                                            \
         const uint8_t d1 = read_mem(cpu.pc++);                          \
         const uint8_t a = d1 + cpu.x;                                   \
-        const uint8_t d3 = read_mem(a);                                 \
-        const uint8_t d4 = read_mem((a+1) & 0xFF);                      \
+        const uint8_t d3 = read_mem_zero(a);                            \
+        const uint8_t d4 = read_mem_zero((a+1) & 0xFF);                 \
         addr = ((uint16_t)d4 << 8) | (d3 & 0x00FF);                     \
         DISPRINTF(addr_data_string, "%02X    ", d1);                    \
         DISPRINTF(addr_string, "($%02X,X) @ %02X = %04X = %02X", d1, a, addr, read_mem(addr)); \
@@ -102,8 +105,8 @@ static const uint8_t clock_table [256] =
 #define GET_ADDR_INDY() do {                                            \
         const uint8_t d1 = read_mem(cpu.pc++);                          \
         const uint16_t a1 = d1;                                         \
-        const uint8_t d3 = read_mem(a1);                                \
-        const uint8_t d4 = read_mem((a1+1) & 0x00FF);                   \
+        const uint8_t d3 = read_mem_zero(a1);                           \
+        const uint8_t d4 = read_mem_zero((a1+1) & 0x00FF);              \
         const uint16_t a2 = (((uint16_t)d4 << 8) | (d3 & 0x00FF));      \
         addr = a2 + cpu.y;                                              \
         if((a2 ^ addr) & 0xFF00) { penalty_clock = 1; };                \
@@ -116,7 +119,7 @@ static const uint8_t clock_table [256] =
         const uint8_t d2 = read_mem(cpu.pc++);                          \
         const uint16_t a = ((uint16_t)d2 << 8) + d1;                    \
         const uint8_t d3 = read_mem(a);                                 \
-        const uint8_t d4 = read_mem(((uint16_t)d2 << 8) + ((d1+1) & 0xff)); \
+        const uint8_t d4 = read_mem(((uint16_t)d2 << 8) + ((d1+1) & 0XFF)); \
         addr = ((uint16_t)d4 << 8) | (d3 & 0x00FF);                     \
         DISPRINTF(addr_data_string, "%02X %02X ", d1, d2);              \
         DISPRINTF(addr_string, "($%04X) = %04X", a, addr);              \
@@ -154,17 +157,17 @@ static const uint8_t clock_table [256] =
 
 #define GET_VALUE_ZERO() do {                   \
         GET_ADDR_ZERO();                        \
-        value = read_mem(addr);                 \
+        value = read_mem_zero(addr);                 \
     } while(0)
 
 #define GET_VALUE_ZEROX() do {                  \
         GET_ADDR_ZEROX();                       \
-        value = read_mem(addr);                 \
+        value = read_mem_zero(addr);                 \
     } while(0)
 
 #define GET_VALUE_ZEROY() do {                  \
         GET_ADDR_ZEROY();                       \
-        value = read_mem(addr);                 \
+        value = read_mem_zero(addr);                 \
     } while(0)
 
 #define GET_VALUE_INDX() do {                   \
@@ -240,8 +243,8 @@ int cpu_step(void)
     char addr_string[32] = "";
     char addr_data_string[32] = "      ";
 
-    uint16_t addr_op = cpu.pc-1;
-    uint8_t old_a = cpu.a, old_x = cpu.x, old_y = cpu.y, old_sp = cpu.sp, old_status = cpu.status;
+    const uint16_t addr_op = cpu.pc-1;
+    const uint8_t old_a = cpu.a, old_x = cpu.x, old_y = cpu.y, old_sp = cpu.sp, old_status = cpu.status;
 #endif
 
     if(cpu.irq_pending & FLAG_NMI_PENDING) {
@@ -461,13 +464,26 @@ int cpu_step(void)
             PRINT_OP("INY");
             break;
 
+
         case 0xE6: // INC zero
             GET_ADDR_ZERO();
-            goto perform_INC;
+            goto perform_INCz;
 
         case 0xF6: // INC zero, X
             GET_ADDR_ZEROX();
-            goto perform_INC;
+            goto perform_INCz;
+
+        perform_INCz:
+            {
+                const uint8_t result = read_mem_zero(addr) + 1;
+                write_mem_zero(addr, result);
+                AFFECTED_FLAGS(FLAG_ZERO | FLAG_NEGATIVE);
+                CHECK_ZERO(result);
+                CHECK_NEG(result);
+                PRINT_OP("INC");
+            }
+            break;
+
 
         case 0xEE: // INC abs
             GET_ADDR_ABS();
@@ -492,11 +508,22 @@ int cpu_step(void)
 
         case 0xC6: // DEC zero
             GET_ADDR_ZERO();
-            goto perform_DEC;
+            goto perform_DECz;
 
         case 0xD6: // DEC zero, X
             GET_ADDR_ZEROX();
-            goto perform_DEC;
+            goto perform_DECz;
+
+        perform_DECz:
+            {
+                const uint8_t result = read_mem_zero(addr) - 1;
+                write_mem_zero(addr, result);
+                AFFECTED_FLAGS(FLAG_ZERO | FLAG_NEGATIVE);
+                CHECK_ZERO(result);
+                CHECK_NEG(result);
+                PRINT_OP("DEC");
+            }
+            break;
 
         case 0xCE: // DEC abs
             GET_ADDR_ABS();
@@ -516,6 +543,7 @@ int cpu_step(void)
                 PRINT_OP("DEC");
             }
             break;
+
 
         case 0x0A: // ASL A
         {
@@ -537,11 +565,28 @@ int cpu_step(void)
 
         case 0x06: // ASL zero
             GET_ADDR_ZERO();
-            goto perform_ASL;
+            goto perform_ASLz;
 
         case 0x16:
             GET_ADDR_ZEROX();
-            goto perform_ASL;
+            goto perform_ASLz;
+
+        perform_ASLz:
+            {
+                const uint8_t val = read_mem_zero(addr);
+                const uint8_t carry = val & 0x80;
+                const uint8_t result = val << 1;
+
+                write_mem_zero(addr, result);
+
+                AFFECTED_FLAGS(FLAG_ZERO | FLAG_NEGATIVE | FLAG_CARRY);
+                CHECK_ZERO(result);
+                CHECK_NEG(result);
+                CHECK_CARRY(carry);
+
+                PRINT_OP("ASL");
+            }
+            break;
 
         case 0x0E:
             GET_ADDR_ABS();
@@ -589,11 +634,28 @@ int cpu_step(void)
 
         case 0x46: // LSR zero
             GET_ADDR_ZERO();
-            goto perform_LSR;
+            goto perform_LSRz;
 
         case 0x56: // LSR zero, X
             GET_ADDR_ZEROX();
-            goto perform_LSR;
+            goto perform_LSRz;
+
+        perform_LSRz:
+            {
+                const uint8_t val = read_mem_zero(addr);
+                const uint8_t carry = val & 0x01;
+                const uint8_t result = val >> 1;
+
+                write_mem_zero(addr, result);
+
+                AFFECTED_FLAGS(FLAG_ZERO | FLAG_NEGATIVE | FLAG_CARRY);
+                CHECK_ZERO(result);
+                CHECK_NEG(result);
+                CHECK_CARRY(carry);
+
+                PRINT_OP("LSR");
+            }
+            break;
 
         case 0x4E: // LSR abs
             GET_ADDR_ABS();
@@ -644,11 +706,28 @@ int cpu_step(void)
 
         case 0x66: // ROR zero
             GET_ADDR_ZERO();
-            goto perform_ROR;
+            goto perform_RORz;
 
         case 0x76: // ROR zero, X
             GET_ADDR_ZEROX();
-            goto perform_ROR;
+            goto perform_RORz;
+
+        perform_RORz:
+            {
+                const uint8_t val = read_mem_zero(addr);
+                const uint8_t carry = val & 0x01;
+                const uint8_t result = (val >> 1) | ((cpu.status & FLAG_CARRY) ? 0x80 : 0);
+
+                write_mem(addr, result);
+
+                AFFECTED_FLAGS(FLAG_ZERO | FLAG_NEGATIVE | FLAG_CARRY);
+                CHECK_ZERO(result);
+                CHECK_NEG(result);
+                CHECK_CARRY(carry);
+
+                PRINT_OP("ROR");
+            }
+            break;
 
         case 0x6E: // ROR abs
             GET_ADDR_ABS();
@@ -699,11 +778,29 @@ int cpu_step(void)
 
         case 0x26: // ROL zero
             GET_ADDR_ZERO();
-            goto perform_ROL;
+            goto perform_ROLz;
 
         case 0x36: // ROL zero, X
             GET_ADDR_ZEROX();
-            goto perform_ROL;
+            goto perform_ROLz;
+
+        perform_ROLz:
+            {
+                const uint8_t val = read_mem_zero(addr);
+                const uint8_t carry = cpu.a & 0x80;
+                const uint8_t result = (val << 1) | ((cpu.status & FLAG_CARRY) ? 1 : 0);
+
+                write_mem_zero(addr, result);
+
+                AFFECTED_FLAGS(FLAG_ZERO | FLAG_NEGATIVE | FLAG_CARRY);
+                CHECK_ZERO(result);
+                CHECK_NEG(result);
+                CHECK_CARRY(carry);
+
+                PRINT_OP("ROL");
+            }
+            break;
+
 
         case 0x2E: // ROL abs
             GET_ADDR_ABS();
@@ -839,11 +936,17 @@ int cpu_step(void)
 
         case 0x85: // STA zero
             GET_ADDR_ZERO();
-            goto perform_STA;
+            goto perform_STAz;
 
         case 0x95: // STA zero, X
             GET_ADDR_ZEROX();
-            goto perform_STA;
+            goto perform_STAz;
+
+        perform_STAz:
+            write_mem_zero(addr, cpu.a);
+            NO_FLAGS();
+            PRINT_OP("STA");
+            break;
 
         case 0x8D: // STA abs
             GET_ADDR_ABS();
@@ -875,11 +978,17 @@ int cpu_step(void)
 
         case 0x86: // STX zero
             GET_ADDR_ZERO();
-            goto perform_STX;
+            goto perform_STXz;
 
         case 0x96: // STX zero, Y
             GET_ADDR_ZEROY();
-            goto perform_STX;
+            goto perform_STXz;
+
+        perform_STXz:
+            write_mem(addr, cpu.x);
+            NO_FLAGS();
+            PRINT_OP("STX");
+            break;
 
         case 0x8E: // STX abs
             GET_ADDR_ABS();
@@ -895,11 +1004,17 @@ int cpu_step(void)
 
         case 0x84: // STY zero
             GET_ADDR_ZERO();
-            goto perform_STY;
+            goto perform_STYz;
 
         case 0x94: // STY zero,X
             GET_ADDR_ZEROX();
-            goto perform_STY;
+            goto perform_STYz;
+
+        perform_STYz:
+            write_mem(addr, cpu.y);
+            NO_FLAGS();
+            PRINT_OP("STY");
+            break;
 
         case 0x8C: // STY abs
             GET_ADDR_ABS();
