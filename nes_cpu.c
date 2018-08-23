@@ -51,7 +51,9 @@ static const uint8_t clock_table [256] =
 #define GET_ADDR_ABSX() do {                                            \
         const uint8_t d1 = read_mem(cpu.pc++);                          \
         const uint8_t d2 = read_mem(cpu.pc++);                          \
-        addr = ((uint16_t)d2 << 8) + d1 + cpu.x;                        \
+        const uint16_t a = ((uint16_t)d2 << 8) + d1;                    \
+        addr = a + cpu.x;                                               \
+        if((a ^ addr) & 0xFF00) { penalty_clock = 1; };                 \
         DISPRINTF(addr_data_string, "%02X %02X ", d1, d2);              \
         DISPRINTF(addr_string, "$%04X,X @ %04X = %02X", ((uint16_t)d2 << 8) + d1, addr, read_mem(addr)); \
     } while(0)
@@ -59,7 +61,9 @@ static const uint8_t clock_table [256] =
 #define GET_ADDR_ABSY() do {                                            \
         const uint8_t d1 = read_mem(cpu.pc++);                          \
         const uint8_t d2 = read_mem(cpu.pc++);                          \
-        addr = ((uint16_t)d2 << 8) + d1 + cpu.y;                        \
+        const uint16_t a = ((uint16_t)d2 << 8) + d1;                    \
+        addr = a + cpu.y;                                               \
+        if((a ^ addr) & 0xFF00) { penalty_clock = 1; };                 \
         DISPRINTF(addr_data_string, "%02X %02X ", d1, d2);              \
         DISPRINTF(addr_string, "$%04X,Y @ %04X = %02X", ((uint16_t)d2 << 8) + d1, addr, read_mem(addr)); \
     } while(0)
@@ -102,6 +106,7 @@ static const uint8_t clock_table [256] =
         const uint8_t d4 = read_mem((a1+1) & 0x00FF);                   \
         const uint16_t a2 = (((uint16_t)d4 << 8) | (d3 & 0x00FF));      \
         addr = a2 + cpu.y;                                              \
+        if((a2 ^ addr) & 0xFF00) { penalty_clock = 1; };                \
         DISPRINTF(addr_data_string, "%02X    ", d1);                    \
         DISPRINTF(addr_string, "($%02X),Y = %04X @ %04X = %02X", a1, a2, addr, read_mem(addr)); \
     } while(0)
@@ -117,11 +122,6 @@ static const uint8_t clock_table [256] =
         DISPRINTF(addr_string, "($%04X) = %04X", a, addr);              \
     } while(0)
 
-#define GET_ADDR_IMM() do {                                             \
-        addr = cpu.pc++;                                                \
-        DISPRINTF(addr_data_string, "%02X    ", read_mem(addr));        \
-        DISPRINTF(addr_string, "#$%02X", read_mem(addr));               \
-    } while(0)
 
 #define GET_ADDR_REL() do {                                             \
         const int8_t offset = read_mem(cpu.pc++);                       \
@@ -143,11 +143,13 @@ static const uint8_t clock_table [256] =
 #define GET_VALUE_ABSX() do {                   \
         GET_ADDR_ABSX();                        \
         value = read_mem(addr);                 \
+        cpu.clock += penalty_clock;             \
     } while(0)
 
 #define GET_VALUE_ABSY() do {                   \
         GET_ADDR_ABSY();                        \
         value = read_mem(addr);                 \
+        cpu.clock += penalty_clock;             \
     } while(0)
 
 #define GET_VALUE_ZERO() do {                   \
@@ -173,11 +175,14 @@ static const uint8_t clock_table [256] =
 #define GET_VALUE_INDY() do {                   \
         GET_ADDR_INDY();                        \
         value = read_mem(addr);                 \
+        cpu.clock += penalty_clock;             \
     } while(0)
 
-#define GET_VALUE_IMM() do {                    \
-        GET_ADDR_IMM();                         \
-        value = read_mem(addr);                 \
+#define GET_VALUE_IMM() do {                                            \
+        addr = cpu.pc++;                                                \
+        DISPRINTF(addr_data_string, "%02X    ", read_mem(addr));        \
+        DISPRINTF(addr_string, "#$%02X", read_mem(addr));               \
+        value = read_mem(addr);                                         \
     } while(0)
 
 
@@ -229,6 +234,7 @@ int cpu_step(void)
     uint8_t op = read_mem(cpu.pc++);
     uint8_t value;
     uint16_t addr;
+    uint8_t penalty_clock = 0;
 
 #ifdef DEBUG_INSTRUCTION_LOG
     char addr_string[32] = "";
@@ -1166,7 +1172,7 @@ int cpu_step(void)
         case 0x89:
         case 0xC2:
         case 0xE2:
-            GET_ADDR_IMM();
+            GET_VALUE_IMM();
             goto undocumented_NOP;
 
         case 0x0C: // *NOP abs
