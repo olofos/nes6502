@@ -145,28 +145,22 @@ void channel_timer_set_period(uint16_t period)
 }
 
 
-static uint8_t next_sample_sq(double freq)
+static uint8_t next_sample_sq(double freq, int k)
 {
-    uint8_t sample = 0;
-
-    for(int k = CHAN_SQ1; k <= CHAN_SQ2; k++) {
-        channel_t *ch = &apu.channels[k];
-        if(ch->timer_running && (ch->length_counter > 0)) {
-            ch->phase += F_CPU / freq;
-            if(ch->phase > ch->reload_period) {
-                ch->phase -= ch->reload_period;
-                ch->step = (ch->step + 1) & 0x0F;
-            }
-        }
-
-        if(ch->step < ch->duty_cycle && ch->enabled) {
-            sample += ch->volume;
-        } else {
-            sample += 0;
+    channel_t *ch = &apu.channels[k];
+    if(ch->timer_running && (ch->length_counter > 0)) {
+        ch->phase += F_CPU / freq;
+        if(ch->phase > ch->reload_period) {
+            ch->phase -= ch->reload_period;
+            ch->step = (ch->step + 1) & 0x0F;
         }
     }
 
-    return sample;
+    if(ch->step < ch->duty_cycle && ch->enabled) {
+        return ch->volume;
+    } else {
+        return 0;
+    }
 }
 
 static uint8_t next_sample_tri(double freq)
@@ -188,7 +182,7 @@ static uint8_t next_sample_noise(double freq)
 {
     channel_t *ch = &apu.channels[CHAN_NOISE];
 
-    if(ch->timer_running && (ch->length_counter > 0)) {
+    if(ch->timer_running && ch->enabled && (ch->length_counter > 0)) {
         ch->phase += F_CPU / freq;
         if(ch->phase > ch->reload_period) {
             ch->phase -= ch->reload_period;
@@ -224,12 +218,13 @@ static uint8_t next_sample_noise(double freq)
 
 int16_t apu_next_sample(double freq)
 {
-    const double p = next_sample_sq(freq);
+    const double p1 = next_sample_sq(freq, CHAN_SQ1);
+    const double p2 = next_sample_sq(freq, CHAN_SQ2);
     const double t = next_sample_tri(freq);
     const double n = next_sample_noise(freq);
-    const double d = 0;
+    const double d = 64;
 
-    const double out_pulse = 95.88 / (100.0 + 8128.0 / p);
+    const double out_pulse = 95.88 / (100.0 + 8128.0 / (p1 + p2));
     const double out_tri_noise_dmc = 159.79 / (100.0 + 1.0 / ( (t / 8227.0) + (n / 12241.0) + (d / 22638)));
     const double out = out_pulse + out_tri_noise_dmc - 0.5;
 
