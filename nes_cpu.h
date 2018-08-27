@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#define F_CPU 1789773UL
+
 #define FLAG_CARRY     0x01
 #define FLAG_ZERO      0x02
 #define FLAG_INTERRUPT 0x04
