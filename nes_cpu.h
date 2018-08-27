@@ -24,6 +24,7 @@ struct nes_cpu
     uint8_t y;
     uint8_t status;
     uint8_t irq_pending;
+    uint32_t clock;
 };
 
 extern struct nes_cpu cpu;
