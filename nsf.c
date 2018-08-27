@@ -246,9 +246,12 @@ int main(int argc, char *argv[])
                 prev_clock = cpu.clock;
             }
 
-            printf("\n");
+            // printf("\n");
 
-            for(;;) {
+            int16_t prev_sample;
+            uint32_t silence_counter = 0;
+
+            while(silence_counter < OUT_FREQ) {
                 ram[0x100 + 0xFF] = 0xFF;
                 ram[0x100 + 0xFE] = 0xFF-1;
 
@@ -270,7 +273,15 @@ int main(int argc, char *argv[])
                 apu_run((F_CPU / ((double) 1000000 / header.ntsc_speed)) - cpu.clock);
 
                 for(int s = 0; s < OUT_FREQ / ((double) 1000000 / header.ntsc_speed); s++) {
-                    output_sample_alsa(apu_next_sample(OUT_FREQ));
+                    int16_t sample = apu_next_sample(OUT_FREQ);
+                    output_sample_alsa(sample);
+
+                    if(sample == prev_sample) {
+                        silence_counter++;
+                    } else {
+                        silence_counter = 0;
+                        prev_sample = sample;
+                    }
                 }
             }
 
