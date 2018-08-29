@@ -1,6 +1,7 @@
-SOURCES=nes_cpu.c nsf.c nes_apu_channel.c nes_apu.c nes_ppu.c alsa_sound.c
+SOURCES=nes_cpu.c nsf.c nes_apu_channel.c nes_apu.c alsa_sound.c dat_file.cpp
 CFLAGS=-Wall
-#-DDEBUG_INSTRUCTION_LOG
+#-DDEBUG_INSTRUCTION_LOG -DDEBUG_STACK
+CXXFLAGS=-Wall -std=c++1z
 LDFLAGS=-lasound
 
 CSOURCES=$(filter %.c, $(SOURCES))

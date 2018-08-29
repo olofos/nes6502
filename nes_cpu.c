@@ -223,7 +223,18 @@ case op+0x1C: GET_VALUE_ABSX();                  \
 #define BRANCH_IF_CLEAR(flag) do { if(!(cpu.status & (flag))) cpu.pc = addr; } while(0)
 
 #ifdef DEBUG_INSTRUCTION_LOG
+#ifdef DEBUG_STACK
+#define PRINT_OP(name) do {                                             \
+        printf("%04X  %02X %s %s %-28sA:%02X X:%02X Y:%02X P:%02X SP:%02X [ ", addr_op, op, addr_data_string, name, addr_string, old_a, old_x, old_y, old_status, old_sp); \
+        for(int i = old_sp+1; i <= 0xFF; i++) {                         \
+            printf("%02X ", read_mem(0x100 + i));                       \
+        }                                                               \
+        printf("]\n");                                                  \
+    } while(0)
+#else
 #define PRINT_OP(name) printf("%04X  %02X %s %s %-28sA:%02X X:%02X Y:%02X P:%02X SP:%02X\n", addr_op, op, addr_data_string, name, addr_string, old_a, old_x, old_y, old_status, old_sp)
+#endif
+
 #define PRINT_UNDOCUMENTED_OP(name) printf("%04X  %02X %s%s %-28sA:%02X X:%02X Y:%02X P:%02X SP:%02X\n", addr_op, op, addr_data_string, name, addr_string, old_a, old_x, old_y, old_status, old_sp)
 #else
 #define PRINT_OP(name) do {} while(0)
@@ -260,6 +271,8 @@ int cpu_step(void)
         cpu.irq_pending &= ~FLAG_NMI_PENDING;
         cpu.pc = a;
         cpu.clock += 7;
+
+        printf("***NMI***\n");
     } else if(!(cpu.status & FLAG_INTERRUPT) && (cpu.irq_pending & FLAG_IRQ_PENDING)) {
         const uint8_t lo = read_mem(0xFFFE);
         const uint8_t hi = read_mem(0xFFFF);
@@ -273,6 +286,8 @@ int cpu_step(void)
         // The IRQ is level triggered and hence FLAG_IRQ_PENDING should not be reset here
         cpu.pc = a;
         cpu.clock += 7;
+
+        printf("***IRQ***\n");
     } else {
         cpu.clock += clock_table[op];
         switch(op)
@@ -1685,6 +1700,7 @@ int cpu_step(void)
 
         default:
             PRINT_OP("Unkown opcode");
+            printf("Unkown instruction %02X\n", op);
             return -1;
         }
     }
