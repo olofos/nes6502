@@ -802,7 +802,7 @@ int cpu_step(void)
         perform_ROLz:
             {
                 const uint8_t val = read_mem_zero(addr);
-                const uint8_t carry = cpu.a & 0x80;
+                const uint8_t carry = val & 0x80;
                 const uint8_t result = (val << 1) | ((cpu.status & FLAG_CARRY) ? 1 : 0);
 
                 write_mem_zero(addr, result);
