@@ -633,7 +633,7 @@ int cpu_step(void)
         {
             GET_ADDR_A();
             const uint8_t val = cpu.a;
-            const uint8_t carry = cpu.a & 0x01;
+            const uint8_t carry = val & 0x01;
             const uint8_t result = val >> 1;
 
             cpu.a = result;
@@ -705,7 +705,7 @@ int cpu_step(void)
         {
             GET_ADDR_A();
             const uint8_t val = cpu.a;
-            const uint8_t carry = cpu.a & 0x01;
+            const uint8_t carry = val & 0x01;
             const uint8_t result = (val >> 1) | ((cpu.status & FLAG_CARRY) ? 0x80 : 0);
 
             cpu.a = result;
@@ -777,7 +777,7 @@ int cpu_step(void)
         {
             GET_ADDR_A();
             const uint8_t val = cpu.a;
-            const uint8_t carry = cpu.a & 0x80;
+            const uint8_t carry = val & 0x80;
             const uint8_t result = (val << 1) | ((cpu.status & FLAG_CARRY) ? 1 : 0);
 
             cpu.a = result;
@@ -828,7 +828,7 @@ int cpu_step(void)
         perform_ROL:
             {
                 const uint8_t val = read_mem(addr);
-                const uint8_t carry = cpu.a & 0x80;
+                const uint8_t carry = val & 0x80;
                 const uint8_t result = (val << 1) | ((cpu.status & FLAG_CARRY) ? 1 : 0);
 
                 write_mem(addr, result);
