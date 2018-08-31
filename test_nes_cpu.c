@@ -9,9 +9,9 @@
 
 #include "nes_cpu.h"
 
-#define DEFAULT_PC 0x1234
+#define DEFAULT_PC 0x8000
 #define DEFAULT_A 0xAB
-#define DEFAULT_X 0x35
+#define DEFAULT_X 0x85
 #define DEFAULT_Y 0x87
 #define DEFAULT_STATUS (FLAG_CONSTANT)
 #define DEFAULT_SP 0xFD
@@ -23,17 +23,16 @@
 
 void set_instruction_helper(uint8_t *data, int num)
 {
-    uint16_t a = DEFAULT_PC;
+    uint16_t a = cpu.pc;
 
     for(int i = 0; i < num; i++) {
-        expect_value(read_mem, address, a + i);
+        expect_value(read_mem, address, (a + i) & 0xFFFF);
         will_return(read_mem, data[i]);
     }
 }
 
 uint8_t read_mem(uint16_t address)
 {
-    // printf("read_mem: %04X\n", address);
     check_expected(address);
     return mock();
 }
@@ -66,6 +65,326 @@ void expect_write(uint16_t addr, uint8_t val)
 {
     expect_value(write_mem, address, addr);
     expect_value(write_mem, value, val);
+}
+
+
+//// Tests /////////////////////////////////////////////////////////////////////
+
+/* BIT */
+
+static void test__bit_zero(void **states)
+{
+    for(int b = 0; b <= 0xFF; b++) {
+        for(int a = 0; a <= 0xFF; a++) {
+            set_instruction(0x24, 0x12); // BIT $12
+
+            expect_read(0x0012, b);
+            cpu.a = a;
+
+            cpu_step();
+
+            expected_cpu_state.pc += 2;
+            expected_cpu_state.a = a;
+            expected_cpu_state.status = FLAG_CONSTANT | (b & FLAG_OVERFLOW) | (b & FLAG_NEGATIVE) | ((a & b) ? 0 : FLAG_ZERO);
+
+            assert_cpu_state();
+        }
+    }
+}
+
+static void test__bit_abs(void **states)
+{
+    for(int b = 0; b <= 0xFF; b++) {
+        for(int a = 0; a <= 0xFF; a++) {
+            set_instruction(0x2C, 0xEF, 0xBE); // BIT $BEEF
+
+            expect_read(0xBEEF, b);
+            cpu.a = a;
+
+            cpu_step();
+
+            expected_cpu_state.pc += 3;
+            expected_cpu_state.a = a;
+            expected_cpu_state.status = FLAG_CONSTANT | (b & FLAG_OVERFLOW) | (b & FLAG_NEGATIVE) | ((a & b) ? 0 : FLAG_ZERO);
+
+            assert_cpu_state();
+        }
+    }
+}
+
+/* BCC */
+
+static void test__bcc(void **states)
+{
+    for(int s = 0; s <= 0xFF; s++) {
+        cpu.pc = DEFAULT_PC;
+        set_instruction(0x90, -4); // BCC
+
+        cpu.status = s;
+
+        cpu_step();
+
+        expected_cpu_state.pc = DEFAULT_PC + 2 + ((s & FLAG_CARRY) ? 0 : -4);
+        expected_cpu_state.status = s;
+
+        assert_cpu_state();
+    }
+}
+
+/* BCS */
+
+static void test__bcs(void **states)
+{
+    for(int s = 0; s <= 0xFF; s++) {
+        cpu.pc = DEFAULT_PC;
+        set_instruction(0xB0, -4); // BCS
+
+        cpu.status = s;
+
+        cpu_step();
+
+        expected_cpu_state.pc = DEFAULT_PC + 2 + ((s & FLAG_CARRY) ? -4 : 0);
+        expected_cpu_state.status = s;
+
+        assert_cpu_state();
+    }
+}
+
+/* BEQ */
+
+static void test__beq(void **states)
+{
+    for(int s = 0; s <= 0xFF; s++) {
+        cpu.pc = DEFAULT_PC;
+        set_instruction(0xF0, -4); // BEQ
+
+        cpu.status = s;
+
+        cpu_step();
+
+        expected_cpu_state.pc = DEFAULT_PC + 2 + ((s & FLAG_ZERO) ? -4 : 0);
+        expected_cpu_state.status = s;
+
+        assert_cpu_state();
+    }
+}
+
+/* BMI */
+
+static void test__bmi(void **states)
+{
+    for(int s = 0; s <= 0xFF; s++) {
+        cpu.pc = DEFAULT_PC;
+        set_instruction(0x30, -4); // BMI
+
+        cpu.status = s;
+
+        cpu_step();
+
+        expected_cpu_state.pc = DEFAULT_PC + 2 + ((s & FLAG_NEGATIVE) ? -4 : 0);
+        expected_cpu_state.status = s;
+
+        assert_cpu_state();
+    }
+}
+
+/* BNE */
+
+static void test__bne(void **states)
+{
+    for(int s = 0; s <= 0xFF; s++) {
+        cpu.pc = DEFAULT_PC;
+        set_instruction(0xD0, -4); // BNE
+
+        cpu.status = s;
+
+        cpu_step();
+
+        expected_cpu_state.pc = DEFAULT_PC + 2 + ((s & FLAG_ZERO) ? 0 : -4);
+        expected_cpu_state.status = s;
+
+        assert_cpu_state();
+    }
+}
+
+/* BPL */
+
+static void test__bpl(void **states)
+{
+    for(int s = 0; s <= 0xFF; s++) {
+        cpu.pc = DEFAULT_PC;
+        set_instruction(0x10, -4); // BPL
+
+        cpu.status = s;
+
+        cpu_step();
+
+        expected_cpu_state.pc = DEFAULT_PC + 2 + ((s & FLAG_NEGATIVE) ? 0 : -4);
+        expected_cpu_state.status = s;
+
+        assert_cpu_state();
+    }
+}
+
+/* BVC */
+
+static void test__bvc(void **states)
+{
+    for(int s = 0; s <= 0xFF; s++) {
+        cpu.pc = DEFAULT_PC;
+        set_instruction(0x50, -4); // BVC
+
+        cpu.status = s;
+
+        cpu_step();
+
+        expected_cpu_state.pc = DEFAULT_PC + 2 + ((s & FLAG_OVERFLOW) ? 0 : -4);
+        expected_cpu_state.status = s;
+
+        assert_cpu_state();
+    }
+}
+
+/* BVS */
+
+static void test__bvs(void **states)
+{
+    for(int s = 0; s <= 0xFF; s++) {
+        cpu.pc = DEFAULT_PC;
+        set_instruction(0x70, -4); // BVS
+
+        cpu.status = s;
+
+        cpu_step();
+
+        expected_cpu_state.pc = DEFAULT_PC + 2 + ((s & FLAG_OVERFLOW) ? -4 : 0);
+        expected_cpu_state.status = s;
+
+        assert_cpu_state();
+    }
+}
+
+/* CLC */
+
+static void test__clc(void **states)
+{
+    for(int s = 0; s <= 0xFF; s++) {
+        cpu.pc = DEFAULT_PC;
+        set_instruction(0x18); // CLC
+
+        cpu.status = s;
+
+        cpu_step();
+
+        expected_cpu_state.pc = DEFAULT_PC + 1;
+        expected_cpu_state.status = s & ~FLAG_CARRY;
+
+        assert_cpu_state();
+    }
+}
+
+/* CLD */
+
+static void test__cld(void **states)
+{
+    for(int s = 0; s <= 0xFF; s++) {
+        cpu.pc = DEFAULT_PC;
+        set_instruction(0xD8); // CLD
+
+        cpu.status = s;
+
+        cpu_step();
+
+        expected_cpu_state.pc = DEFAULT_PC + 1;
+        expected_cpu_state.status = s & ~FLAG_DECIMAL;
+
+        assert_cpu_state();
+    }
+}
+
+/* CLI */
+
+static void test__cli(void **states)
+{
+    for(int s = 0; s <= 0xFF; s++) {
+        cpu.pc = DEFAULT_PC;
+        set_instruction(0x58); // CLI
+
+        cpu.status = s;
+
+        cpu_step();
+
+        expected_cpu_state.pc = DEFAULT_PC + 1;
+        expected_cpu_state.status = s & ~FLAG_INTERRUPT;
+
+        assert_cpu_state();
+    }
+}
+
+/* CLV */
+
+static void test__clv(void **states)
+{
+    for(int s = 0; s <= 0xFF; s++) {
+        cpu.pc = DEFAULT_PC;
+        set_instruction(0xB8); // CLV
+
+        cpu.status = s;
+
+        cpu_step();
+
+        expected_cpu_state.pc = DEFAULT_PC + 1;
+        expected_cpu_state.status = s & ~FLAG_OVERFLOW;
+
+        assert_cpu_state();
+    }
+}
+
+/* JMP */
+
+static void test__jmp_abs(void **states)
+{
+    set_instruction(0x4C, 0xEF, 0xBE); // JMP $BEEF
+
+    cpu_step();
+
+    expected_cpu_state.pc = 0xBEEF;
+
+    assert_cpu_state();
+}
+
+static void test__jmp_ind(void **states)
+{
+    set_instruction(0x6C, 0xEF, 0xBE); // JMP ($BEEF)
+    expect_read(0xBEEF, 0x06);
+    expect_read(0xBEEF + 1, 0x0D);
+
+    cpu_step();
+
+    expected_cpu_state.pc = 0x0D06;
+
+    assert_cpu_state();
+}
+
+
+/* JSR */
+
+static void test__jsr(void **states)
+{
+    cpu.pc = 0x1234;
+    cpu.sp = 0xFD;
+
+    set_instruction(0x20, 0xEF, 0xBE); // JSR $BEEF
+
+    expect_write(0x01FD, 0x12);
+    expect_write(0x01FC, 0x34 + 3 - 1);
+
+    cpu_step();
+
+    expected_cpu_state.pc = 0xBEEF;
+    expected_cpu_state.sp = 0xFB;
+
+    assert_cpu_state();
 }
 
 
@@ -500,6 +819,25 @@ static void test__ldy_absx(void **states)
 
 
 
+/* ROL */
+
+static void test__rol_zero(void **states)
+{
+    set_instruction(0x26, 0x3F); // ROL $3F
+
+    expect_read(0x003F, 0x3C);
+    expect_write(0x003F, 0x3C << 1);
+
+    cpu.status = FLAG_CONSTANT;
+
+    cpu_step();
+
+    expected_cpu_state.pc += 2;
+    expected_cpu_state.status = FLAG_CONSTANT;
+
+    assert_cpu_state();
+}
+
 /* STA */
 
 static void test__sta_zero(void **states)
@@ -624,6 +962,108 @@ static void test__sta_indy(void **states)
 }
 
 
+/* STX */
+
+static void test__stx_zero(void **states)
+{
+    set_instruction(0x86, 0x3F); // STX $3F
+    cpu.x = 0x77;
+
+    expect_write(0x003F, 0x77);
+
+    cpu_step();
+
+    expected_cpu_state.pc += 2;
+    expected_cpu_state.x = 0x77;
+
+    assert_cpu_state();
+}
+
+static void test__stx_zeroy(void **states)
+{
+    set_instruction(0x96, 0x3F); // STX $3F, Y
+    cpu.x = 0x77;
+    cpu.y = 0x03;
+
+    expect_write(0x003F + 0x03, 0x77);
+
+    cpu_step();
+
+    expected_cpu_state.pc += 2;
+    expected_cpu_state.x = 0x77;
+    expected_cpu_state.y = 0x03;
+
+    assert_cpu_state();
+}
+
+static void test__stx_abs(void **states)
+{
+    set_instruction(0x8E, 0xEF, 0xBE); // STX $BEEF
+    cpu.x = 0x77;
+
+    expect_write(0xBEEF, 0x77);
+
+    cpu_step();
+
+    expected_cpu_state.pc += 3;
+    expected_cpu_state.x = 0x77;
+
+    assert_cpu_state();
+}
+
+
+
+/* STY */
+
+static void test__sty_zero(void **states)
+{
+    set_instruction(0x84, 0x3F); // STY $3F
+    cpu.y = 0x77;
+
+    expect_write(0x003F, 0x77);
+
+    cpu_step();
+
+    expected_cpu_state.pc += 2;
+    expected_cpu_state.y = 0x77;
+
+    assert_cpu_state();
+}
+
+static void test__sty_zerox(void **states)
+{
+    set_instruction(0x94, 0x3F); // STY $3F, Y
+    cpu.y = 0x77;
+    cpu.x = 0x03;
+
+    expect_write(0x003F + 0x03, 0x77);
+
+    cpu_step();
+
+    expected_cpu_state.pc += 2;
+    expected_cpu_state.x = 0x03;
+    expected_cpu_state.y = 0x77;
+
+    assert_cpu_state();
+}
+
+static void test__sty_abs(void **states)
+{
+    set_instruction(0x8C, 0xEF, 0xBE); // STY $BEEF
+    cpu.y = 0x77;
+
+    expect_write(0xBEEF, 0x77);
+
+    cpu_step();
+
+    expected_cpu_state.pc += 3;
+    expected_cpu_state.y = 0x77;
+
+    assert_cpu_state();
+}
+
+
+
 /* TAX */
 
 static void test__tax(void **states)
@@ -675,6 +1115,254 @@ static void test__tax_flag_neg(void **states)
 
 
 
+/* TAY */
+
+static void test__tay(void **states)
+{
+    set_instruction(0xA8); // TAY
+    cpu.a = 0x77;
+    cpu.y = 0x03;
+
+    cpu_step();
+
+    expected_cpu_state.pc += 1;
+    expected_cpu_state.a = 0x77;
+    expected_cpu_state.y = 0x77;
+
+    assert_cpu_state();
+}
+
+static void test__tay_flag_zero(void **states)
+{
+    set_instruction(0xA8); // TAY
+    cpu.a = 0x00;
+    cpu.y = 0x03;
+
+    cpu_step();
+
+    expected_cpu_state.pc += 1;
+    expected_cpu_state.a = 0x00;
+    expected_cpu_state.y = 0x00;
+    expected_cpu_state.status = FLAG_CONSTANT | FLAG_ZERO;
+
+    assert_cpu_state();
+}
+
+static void test__tay_flag_neg(void **states)
+{
+    set_instruction(0xA8); // TAY
+    cpu.a = 0xF0;
+    cpu.y = 0x03;
+
+    cpu_step();
+
+    expected_cpu_state.pc += 1;
+    expected_cpu_state.a = 0xF0;
+    expected_cpu_state.y = 0xF0;
+    expected_cpu_state.status = FLAG_CONSTANT | FLAG_NEGATIVE;
+
+    assert_cpu_state();
+}
+
+
+
+/* TSX */
+
+static void test__tsx(void **states)
+{
+    set_instruction(0xBA); // TSX
+    cpu.sp = 0x77;
+
+    cpu_step();
+
+    expected_cpu_state.pc += 1;
+    expected_cpu_state.sp = 0x77;
+    expected_cpu_state.x = 0x77;
+
+    assert_cpu_state();
+}
+
+static void test__tsx_flag_zero(void **states)
+{
+    set_instruction(0xBA); // TSX
+    cpu.sp = 0x00;
+
+    cpu_step();
+
+    expected_cpu_state.pc += 1;
+    expected_cpu_state.sp = 0x00;
+    expected_cpu_state.x = 0x00;
+    expected_cpu_state.status = FLAG_CONSTANT | FLAG_ZERO;
+
+    assert_cpu_state();
+}
+
+static void test__tsx_flag_neg(void **states)
+{
+    set_instruction(0xBA); // TSX
+    cpu.sp = 0xF0;
+
+    cpu_step();
+
+    expected_cpu_state.pc += 1;
+    expected_cpu_state.sp = 0xF0;
+    expected_cpu_state.x = 0xF0;
+    expected_cpu_state.status = FLAG_CONSTANT | FLAG_NEGATIVE;
+
+    assert_cpu_state();
+}
+
+
+
+/* TXA */
+
+static void test__txa(void **states)
+{
+    set_instruction(0x8A); // TXA
+    cpu.a = 0x77;
+    cpu.x = 0x03;
+
+    cpu_step();
+
+    expected_cpu_state.pc += 1;
+    expected_cpu_state.a = 0x03;
+    expected_cpu_state.x = 0x03;
+
+    assert_cpu_state();
+}
+
+static void test__txa_flag_zero(void **states)
+{
+    set_instruction(0x8A); // TXA
+    cpu.a = 0x03;
+    cpu.x = 0x00;
+
+    cpu_step();
+
+    expected_cpu_state.pc += 1;
+    expected_cpu_state.a = 0x00;
+    expected_cpu_state.x = 0x00;
+    expected_cpu_state.status = FLAG_CONSTANT | FLAG_ZERO;
+
+    assert_cpu_state();
+}
+
+static void test__txa_flag_neg(void **states)
+{
+    set_instruction(0x8A); // TXA
+    cpu.a = 0x03;
+    cpu.x = 0xF0;
+
+    cpu_step();
+
+    expected_cpu_state.pc += 1;
+    expected_cpu_state.a = 0xF0;
+    expected_cpu_state.x = 0xF0;
+    expected_cpu_state.status = FLAG_CONSTANT | FLAG_NEGATIVE;
+
+    assert_cpu_state();
+}
+
+/* TXS */
+
+static void test__txs(void **states)
+{
+    set_instruction(0x9A); // TXS
+    cpu.sp = 0x77;
+    cpu.x = 0x03;
+
+    cpu_step();
+
+    expected_cpu_state.pc += 1;
+    expected_cpu_state.sp = 0x03;
+    expected_cpu_state.x = 0x03;
+
+    assert_cpu_state();
+}
+
+static void test__txs_flag_zero(void **states)
+{
+    set_instruction(0x9A); // TXS
+    cpu.sp = 0x03;
+    cpu.x = 0x00;
+
+    cpu_step();
+
+    expected_cpu_state.pc += 1;
+    expected_cpu_state.sp = 0x00;
+    expected_cpu_state.x = 0x00;
+    expected_cpu_state.status = FLAG_CONSTANT;
+
+    assert_cpu_state();
+}
+
+static void test__txs_flag_neg(void **states)
+{
+    set_instruction(0x9A); // TXS
+    cpu.sp = 0x03;
+    cpu.x = 0xF0;
+
+    cpu_step();
+
+    expected_cpu_state.pc += 1;
+    expected_cpu_state.sp = 0xF0;
+    expected_cpu_state.x = 0xF0;
+    expected_cpu_state.status = FLAG_CONSTANT;
+
+    assert_cpu_state();
+}
+
+/* TYA */
+
+static void test__tya(void **states)
+{
+    set_instruction(0x98); // TYA
+    cpu.a = 0x77;
+    cpu.y = 0x03;
+
+    cpu_step();
+
+    expected_cpu_state.pc += 1;
+    expected_cpu_state.a = 0x03;
+    expected_cpu_state.y = 0x03;
+
+    assert_cpu_state();
+}
+
+static void test__tya_flag_zero(void **states)
+{
+    set_instruction(0x98); // TYA
+    cpu.a = 0x03;
+    cpu.y = 0x00;
+
+    cpu_step();
+
+    expected_cpu_state.pc += 1;
+    expected_cpu_state.a = 0x00;
+    expected_cpu_state.y = 0x00;
+    expected_cpu_state.status = FLAG_CONSTANT | FLAG_ZERO;
+
+    assert_cpu_state();
+}
+
+static void test__tya_flag_neg(void **states)
+{
+    set_instruction(0x98); // TYA
+    cpu.a = 0x03;
+    cpu.y = 0xF0;
+
+    cpu_step();
+
+    expected_cpu_state.pc += 1;
+    expected_cpu_state.a = 0xF0;
+    expected_cpu_state.y = 0xF0;
+    expected_cpu_state.status = FLAG_CONSTANT | FLAG_NEGATIVE;
+
+    assert_cpu_state();
+}
+
+
+
 /**
  * This is run once after one given test
  */
@@ -686,6 +1374,31 @@ static int teardown_test(void** state)
 
 
 const struct CMUnitTest all_tests[] = {
+    cmocka_unit_test_setup_teardown(test__bit_zero, setup_test, teardown_test),
+    cmocka_unit_test_setup_teardown(test__bit_abs, setup_test, teardown_test),
+
+
+    cmocka_unit_test_setup_teardown(test__bcc, setup_test, teardown_test),
+    cmocka_unit_test_setup_teardown(test__bcs, setup_test, teardown_test),
+    cmocka_unit_test_setup_teardown(test__beq, setup_test, teardown_test),
+    cmocka_unit_test_setup_teardown(test__bmi, setup_test, teardown_test),
+    cmocka_unit_test_setup_teardown(test__bne, setup_test, teardown_test),
+    cmocka_unit_test_setup_teardown(test__bpl, setup_test, teardown_test),
+    cmocka_unit_test_setup_teardown(test__bvc, setup_test, teardown_test),
+    cmocka_unit_test_setup_teardown(test__bvs, setup_test, teardown_test),
+
+    cmocka_unit_test_setup_teardown(test__clc, setup_test, teardown_test),
+    cmocka_unit_test_setup_teardown(test__cld, setup_test, teardown_test),
+    cmocka_unit_test_setup_teardown(test__cli, setup_test, teardown_test),
+    cmocka_unit_test_setup_teardown(test__clv, setup_test, teardown_test),
+
+
+    cmocka_unit_test_setup_teardown(test__jmp_abs, setup_test, teardown_test),
+    cmocka_unit_test_setup_teardown(test__jmp_ind, setup_test, teardown_test),
+
+    cmocka_unit_test_setup_teardown(test__jsr, setup_test, teardown_test),
+
+
     cmocka_unit_test_setup_teardown(test__lda_imm, setup_test, teardown_test),
     cmocka_unit_test_setup_teardown(test__lda_zero, setup_test, teardown_test),
     cmocka_unit_test_setup_teardown(test__lda_zerox, setup_test, teardown_test),
@@ -714,6 +1427,7 @@ const struct CMUnitTest all_tests[] = {
     cmocka_unit_test_setup_teardown(test__ldy_abs, setup_test, teardown_test),
     cmocka_unit_test_setup_teardown(test__ldy_absx, setup_test, teardown_test),
 
+    cmocka_unit_test_setup_teardown(test__rol_zero, setup_test, teardown_test),
 
     cmocka_unit_test_setup_teardown(test__sta_zero, setup_test, teardown_test),
     cmocka_unit_test_setup_teardown(test__sta_zerox, setup_test, teardown_test),
@@ -723,9 +1437,37 @@ const struct CMUnitTest all_tests[] = {
     cmocka_unit_test_setup_teardown(test__sta_indx, setup_test, teardown_test),
     cmocka_unit_test_setup_teardown(test__sta_indy, setup_test, teardown_test),
 
+    cmocka_unit_test_setup_teardown(test__stx_zero, setup_test, teardown_test),
+    cmocka_unit_test_setup_teardown(test__stx_zeroy, setup_test, teardown_test),
+    cmocka_unit_test_setup_teardown(test__stx_abs, setup_test, teardown_test),
+
+    cmocka_unit_test_setup_teardown(test__sty_zero, setup_test, teardown_test),
+    cmocka_unit_test_setup_teardown(test__sty_zerox, setup_test, teardown_test),
+    cmocka_unit_test_setup_teardown(test__sty_abs, setup_test, teardown_test),
+
     cmocka_unit_test_setup_teardown(test__tax, setup_test, teardown_test),
     cmocka_unit_test_setup_teardown(test__tax_flag_zero, setup_test, teardown_test),
     cmocka_unit_test_setup_teardown(test__tax_flag_neg, setup_test, teardown_test),
+
+    cmocka_unit_test_setup_teardown(test__tay, setup_test, teardown_test),
+    cmocka_unit_test_setup_teardown(test__tay_flag_zero, setup_test, teardown_test),
+    cmocka_unit_test_setup_teardown(test__tay_flag_neg, setup_test, teardown_test),
+
+    cmocka_unit_test_setup_teardown(test__tsx, setup_test, teardown_test),
+    cmocka_unit_test_setup_teardown(test__tsx_flag_zero, setup_test, teardown_test),
+    cmocka_unit_test_setup_teardown(test__tsx_flag_neg, setup_test, teardown_test),
+
+    cmocka_unit_test_setup_teardown(test__txa, setup_test, teardown_test),
+    cmocka_unit_test_setup_teardown(test__txa_flag_zero, setup_test, teardown_test),
+    cmocka_unit_test_setup_teardown(test__txa_flag_neg, setup_test, teardown_test),
+
+    cmocka_unit_test_setup_teardown(test__txs, setup_test, teardown_test),
+    cmocka_unit_test_setup_teardown(test__txs_flag_zero, setup_test, teardown_test),
+    cmocka_unit_test_setup_teardown(test__txs_flag_neg, setup_test, teardown_test),
+
+    cmocka_unit_test_setup_teardown(test__tya, setup_test, teardown_test),
+    cmocka_unit_test_setup_teardown(test__tya_flag_zero, setup_test, teardown_test),
+    cmocka_unit_test_setup_teardown(test__tya_flag_neg, setup_test, teardown_test),
 
 };
 
