@@ -128,7 +128,8 @@ static const uint8_t clock_table [256] =
 
 #define GET_ADDR_REL() do {                                             \
         const int8_t offset = read_mem(cpu.pc++);                       \
-        addr  = cpu.pc + offset;                                        \
+        addr = cpu.pc + offset;                                         \
+        if((addr ^ cpu.pc) & 0xFF00) { penalty_clock = 2; } else { penalty_clock = 1; } \
         DISPRINTF(addr_data_string, "%02X    ", (uint8_t) offset);      \
         DISPRINTF(addr_string, "$%04X", cpu.pc + offset);               \
     } while(0)
@@ -219,8 +220,8 @@ case op+0x1C: GET_VALUE_ABSX();                  \
 #define STACK_PUSH(val) write_mem(STACK_BASE + cpu.sp--, val)
 #define STACK_POP() read_mem(STACK_BASE + ++cpu.sp)
 
-#define BRANCH_IF_SET(flag) do { if(cpu.status & (flag)) cpu.pc = addr; } while(0)
-#define BRANCH_IF_CLEAR(flag) do { if(!(cpu.status & (flag))) cpu.pc = addr; } while(0)
+#define BRANCH_IF_SET(flag) do { if(cpu.status & (flag)) { cpu.pc = addr; cpu.clock += penalty_clock; } } while(0)
+#define BRANCH_IF_CLEAR(flag) do { if(!(cpu.status & (flag))) { cpu.pc = addr; cpu.clock += penalty_clock; } } while(0)
 
 #ifdef DEBUG_INSTRUCTION_LOG
 #ifdef DEBUG_STACK
