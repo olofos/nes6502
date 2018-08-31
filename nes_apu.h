@@ -14,6 +14,8 @@ struct nes_apu
     uint16_t cycles;
     uint8_t step;
 
+    uint8_t volume;
+
     channel_t channels[4];
 };
 

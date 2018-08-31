@@ -5,24 +5,25 @@
 #include <math.h>
 #include <stdio.h>
 
+channel_t *current_channel;
 
 void apu_reset(void)
 {
     for(int i = 0; i < 3; i++) {
         apu.channels[i].conf = i;
         apu.channels[i].phase = 0;
-        apu.channels[i].muted = 0;
+        apu.channels[i].muted = 1;
+        apu.channels[i].period = 1;
     }
 
-    apu.channels[0].sweep_target_period = 0;
-    apu.channels[1].sweep_target_period = 0;
+    apu.volume = 255;
 
     for(uint16_t a = 0x4000; a <= 0x4013; a++) {
-        write_apu(a, 0x00);
+        write_apu(a, (a & 3) ? 0x00 : 0x01);
     }
 
     write_apu(0x4015, 0x0F);
-    //write_apu(0x4017, 0x40);
+    write_apu(0x4017, 0x40);
 }
 
 void apu_run(uint32_t cpu_cycles)
@@ -70,14 +71,15 @@ void apu_run(uint32_t cpu_cycles)
             if(apu.step > 3) {
                 apu.step = 0;
                 if(!(apu.mode & FLAG_APU_IRQ_INHIBIT)) {
-                    // printf("IRQ\n");
-                    // cpu.irq_pending |= FLAG_IRQ_PENDING;
+                    cpu.irq_pending |= FLAG_IRQ_PENDING;
                 }
             }
         }
     }
 }
 
+
+static uint8_t apu_backup[32];
 
 uint8_t read_apu(uint16_t address)
 {
@@ -98,13 +100,12 @@ uint8_t read_apu(uint16_t address)
         return apu.mode;
     }
 
-    return 0xFF;
+    return apu_backup[address-0x4000];
 }
-
-channel_t *current_channel;
 
 void write_apu(uint16_t address, uint8_t val)
 {
+    apu_backup[address-0x4000] = val;
     switch(address)
     {
     case 0x4015:
@@ -138,7 +139,7 @@ void write_apu(uint16_t address, uint8_t val)
     // }
 
     // if(((address >= 0x4000) && (address <= 0x4003)) || (address == 0x4015) || (address == 0x4017)) {
-    //     printf("%04X: %02X p1: %ld v: %d l: %d p: %d ph: %f m:%d s: %d\n", address, val, apu.channels[0].period, apu.channels[0].volume, apu.channels[0].length_counter, apu.channels[0].period, apu.channels[0].phase, apu.channels[0].muted, apu.channels[0].sweep_target_period);
+    //     printf("%04X: %02X p1: %d v: %d l: %d ph: %f m:%d s: %d\n", address, val, apu.channels[0].period, apu.channels[0].volume, apu.channels[0].length_counter, apu.channels[0].phase, apu.channels[0].muted);
     // }
 
     // if(((address >= 0x4008) && (address <= 0x400B)) || (address == 0x4015) || (address == 0x4017)) {
@@ -235,10 +236,9 @@ static uint8_t next_sample_noise(double freq)
 
 const char *note_string(char *s, int n)
 {
-    const char* note_names[] = {" C", "C#", " D", "D#", " E", " F", "F#", " G", "G#", " A", "A#", " B"};
-    sprintf(s, "%s%d", note_names[(n-3-1) % 12], (n-3+12) / 12);
+    static const char* note_names[] = {" C", "C#", " D", "D#", " E", " F", "F#", " G", "G#", " A", "A#", " B"};
+    sprintf(s, "%s%-2d", note_names[(n-3-1 + 12) % 12], (n-3+12) / 12);
     return s;
-
 }
 
 int16_t apu_next_sample(double freq)
@@ -261,13 +261,12 @@ int16_t apu_next_sample(double freq)
     int num_p2 = 49 + 12 * log2(freq_p2 / 442.0);
     int num_t = 49 + 12 * log2(freq_t / 442.0);
 
-
     char s1[32], s2[32], s3[32];
     printf("\r[%s] [%s] [%s]",
-           (!apu.channels[0].muted) ? note_string(s1, num_p1) : "   ",
-           (!apu.channels[1].muted) ? note_string(s2, num_p2) : "   ",
-           (!apu.channels[2].muted) ? note_string(s3, num_t) : "   "
+           (!apu.channels[0].muted) ? note_string(s1, num_p1) : "    ",
+           (!apu.channels[1].muted) ? note_string(s2, num_p2) : "    ",
+           (!apu.channels[2].muted) ? note_string(s3, num_t) : "    "
         );
 
-    return (int16_t) (INT16_MAX * out);
+    return (int16_t) ((apu.volume / 255.0) * INT16_MAX * out);
 }
