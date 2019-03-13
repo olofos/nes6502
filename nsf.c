@@ -72,7 +72,7 @@ void write_mem(uint16_t address, uint8_t val)
         dat_reg_write(dat, address & 0x00FF, val);
 #endif
         write_apu(address, val);
-        if(address <= 0x4013) {
+        if((address <= 0x4013) && (val != 0x00)) {
             apu_written = 1;
         }
     } else if((address >= 0x5FF8) & (address <= 0x5FFF)) {
@@ -146,9 +146,6 @@ void play_song(int track, struct nsf_header header)
         prev_clock = cpu.clock;
     }
 
-    int16_t prev_sample;
-    uint32_t silence_counter = 0;
-
     uint32_t frame_counter = 0;
 
 #ifdef PCLOG
@@ -161,7 +158,7 @@ void play_song(int track, struct nsf_header header)
 
     uint16_t silent_frames = 0;
 
-    while((silence_counter < 3*OUT_FREQ) && (frame_counter++ < frames_per_second * play_time)) {
+    while((silent_frames < 90) && (frame_counter++ < frames_per_second * play_time)) {
 
         apu_written = 0;
 
@@ -213,18 +210,10 @@ void play_song(int track, struct nsf_header header)
         for(int s = 0; s < OUT_FREQ / ((double) 1000000 / header.ntsc_speed); s++) {
             int16_t sample = apu_next_sample(OUT_FREQ);
             output_sample_alsa(sample);
-
-            if(sample == prev_sample) {
-                silence_counter++;
-            } else {
-                silence_counter = 0;
-                prev_sample = sample;
-            }
         }
     }
 
     printf("\n%d frame with no APU writes\n", silent_frames);
-
     printf("\n");
 
 #ifdef PCLOG
