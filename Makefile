@@ -1,8 +1,8 @@
 SOURCES=nes_cpu.c nsf.c nes_apu_channel.c nes_apu.c alsa_sound.c dat_file.cpp
-CFLAGS=-Wall -std=c11
+CFLAGS=-Wall -g
 #-DDEBUG_INSTRUCTION_LOG -DDEBUG_STACK
-CXXFLAGS=-Wall -std=c++1z
-LDFLAGS=-lasound
+CXXFLAGS=-Wall -std=c++17 -g
+LDFLAGS=-lasound -g
 
 LDFLAGS_TEST=-lcmocka
 
