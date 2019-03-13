@@ -15,6 +15,7 @@ struct nes_apu
     uint8_t step;
 
     uint8_t volume;
+    uint8_t mute;
 
     channel_t channels[4];
 };

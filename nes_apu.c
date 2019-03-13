@@ -243,10 +243,10 @@ const char *note_string(char *s, int n)
 
 int16_t apu_next_sample(double freq)
 {
-    const double p1 = next_sample_sq(freq, CHAN_SQ1);
-    const double p2 = next_sample_sq(freq, CHAN_SQ2);
-    const double t = next_sample_tri(freq);
-    const double n = next_sample_noise(freq);
+    const double p1 = (apu.mute & _BV(CHAN_SQ1)) ? 0 : next_sample_sq(freq, CHAN_SQ1);
+    const double p2 = (apu.mute & _BV(CHAN_SQ2)) ? 0 : next_sample_sq(freq, CHAN_SQ2);
+    const double t = (apu.mute & _BV(CHAN_TRI)) ? 0 : next_sample_tri(freq);
+    const double n = (apu.mute & _BV(CHAN_NOISE)) ? 0 : next_sample_noise(freq);
     const double d = 64;
 
     const double out_pulse = 95.88 / (100.0 + 8128.0 / (p1 + p2));
@@ -262,10 +262,11 @@ int16_t apu_next_sample(double freq)
     int num_t = 49 + 12 * log2(freq_t / 442.0);
 
     char s1[32], s2[32], s3[32];
-    printf("\r[%s] [%s] [%s]",
-           (!apu.channels[0].muted) ? note_string(s1, num_p1) : "    ",
-           (!apu.channels[1].muted) ? note_string(s2, num_p2) : "    ",
-           (!apu.channels[2].muted) ? note_string(s3, num_t) : "    "
+    printf("\r[%s] [%s] [%s] [%s]",
+           ((!apu.channels[0].muted) && (apu.channels[0].volume > 0)) ? note_string(s1, num_p1) : "    ",
+           ((!apu.channels[1].muted) && (apu.channels[1].volume > 0)) ? note_string(s2, num_p2) : "    ",
+           (!apu.channels[2].muted) ? note_string(s3, num_t) : "    ",
+           ((!apu.channels[3].muted) && (apu.channels[3].volume > 0)) ? "X" : " "
         );
 
     return (int16_t) ((apu.volume / 255.0) * INT16_MAX * out);

@@ -97,6 +97,8 @@ void write_mem(uint16_t address, uint8_t val)
 
 void play_song(int track, struct nsf_header header)
 {
+    apu.mute = 0;
+
     printf("Playing track %d\n", track);
 
     if(uses_bankswitching) {
